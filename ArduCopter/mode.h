@@ -1879,6 +1879,16 @@ public:
         RUNNING = 1,
     };
 
+    // Throw detection strategies (THROW_DETECT parameter)
+    enum class DetectMethod {
+        LegacyPeak = 0,       // classic peak confirmation (unchanged behaviour)
+        EarlyCoast = 1,       // coast after launch using THROW_ACCEL_MAX
+        EarlyCoast1g = 2,     // coast with fixed 1.0 g threshold
+        PostImpulse = 3,      // require high-g impulse then coast
+        PostImpulseFast = 4,  // as PostImpulse with shorter debounce
+        ClimbingFast = 5,     // kinematics + coast, no impulse latch
+    };
+
 protected:
 
     const char *name() const override { return "Throw"; }
@@ -1890,6 +1900,19 @@ private:
     bool throw_position_good() const;
     bool throw_height_good() const;
     bool throw_attitude_good() const;
+
+    // detection helpers
+    bool throw_ahrs_healthy() const;
+    bool throw_height_within_params() const;
+    bool throw_changing_height() const;
+    bool throw_high_speed() const;
+    float throw_accel_g() const;
+    bool throw_coast_condition(float accel_max_g) const;
+    bool throw_debounce(bool condition, uint32_t debounce_ms);
+    bool throw_detected_legacy();
+    bool throw_detected_early_coast(float accel_max_g, uint32_t debounce_ms, bool require_impulse);
+
+    void throw_reset_detection_state();
 
     // Throw stages
     enum ThrowModeStage {
@@ -1907,6 +1930,10 @@ private:
     bool nextmode_attempted;
     uint32_t free_fall_start_ms;    // system time free fall was detected
     float free_fall_start_vel_u_ms;     // vertical velocity when free fall was detected
+
+    // early / post-impulse detection state
+    uint32_t early_condition_start_ms;  // when early-coast condition first became true
+    bool impulse_seen;                  // true after high-g launch pulse observed
 };
 
 #if MODE_TURTLE_ENABLED
