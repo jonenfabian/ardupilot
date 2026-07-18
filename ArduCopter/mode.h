@@ -1886,7 +1886,7 @@ public:
         EarlyCoast1g = 2,     // coast with fixed 1.0 g threshold
         PostImpulse = 3,      // require high-g impulse then coast
         PostImpulseFast = 4,  // as PostImpulse with shorter debounce
-        ClimbingFast = 5,     // kinematics + coast, no impulse latch
+        ClimbingFast = 5,     // purely kinematic (speed + climb), no accelerometer gate
     };
 
 protected:
@@ -1934,6 +1934,7 @@ private:
     // early / post-impulse detection state
     uint32_t early_condition_start_ms;  // when early-coast condition first became true
     bool impulse_seen;                  // true after high-g launch pulse observed
+    uint32_t impulse_seen_ms;           // system time the launch impulse was last observed
 };
 
 #if MODE_TURTLE_ENABLED

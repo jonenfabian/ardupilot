@@ -37,6 +37,7 @@ void ModeThrow::throw_reset_detection_state()
     free_fall_start_vel_u_ms = 0.0f;
     early_condition_start_ms = 0;
     impulse_seen = false;
+    impulse_seen_ms = 0;
 }
 
 // runs the throw to start controller
@@ -316,7 +317,8 @@ float ModeThrow::throw_accel_g() const
 bool ModeThrow::throw_coast_condition(float accel_max_g) const
 {
     // launch force over: specific force magnitude below threshold
-    if (throw_accel_g() >= accel_max_g) {
+    // (accel_max_g <= 0 disables the accelerometer gate, purely kinematic detection)
+    if (accel_max_g > 0.0f && throw_accel_g() >= accel_max_g) {
         return false;
     }
     if (!throw_changing_height()) {
@@ -383,8 +385,15 @@ bool ModeThrow::throw_detected_early_coast(float accel_max_g, uint32_t debounce_
 {
     // latch high-g launch pulse if required
     if (require_impulse) {
+        constexpr uint32_t IMPULSE_LATCH_TIMEOUT_MS = 5000;
+        const uint32_t now_ms = AP_HAL::millis();
         if (throw_accel_g() >= g2.throw_impulse_g) {
             impulse_seen = true;
+            impulse_seen_ms = now_ms;
+        }
+        // expire the latch if detection never completed (e.g. misfired launch)
+        if (impulse_seen && (now_ms - impulse_seen_ms) > IMPULSE_LATCH_TIMEOUT_MS) {
+            impulse_seen = false;
         }
         if (!impulse_seen) {
             early_condition_start_ms = 0;
@@ -425,8 +434,8 @@ bool ModeThrow::throw_detected()
     }
 
     case DetectMethod::ClimbingFast:
-        // kinematics + coast, no impulse latch (more false-trigger risk)
-        return throw_detected_early_coast(MAX(g2.throw_accel_max_g.get(), 0.1f), debounce_ms, false);
+        // purely kinematic: speed + climb rate + height window, no accelerometer gate
+        return throw_detected_early_coast(0.0f, debounce_ms, false);
 
     default:
         return throw_detected_legacy();

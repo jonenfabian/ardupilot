@@ -1188,15 +1188,15 @@ const AP_Param::GroupInfo ParametersG2::var_info2[] = {
 #if MODE_THROW_ENABLED
     // @Param: THROW_DETECT
     // @DisplayName: Throw detection method
-    // @Description: Selects how Throw mode decides that the vehicle has been launched and motors may start. 0 keeps classic peak confirmation. 1-5 are earlier coast/impulse strategies for field comparison (e.g. pneumatic launch).
+    // @Description: Selects how Throw mode decides that the vehicle has been launched and motors may start. 0 keeps classic peak confirmation. 1-4 are earlier coast/impulse strategies for field comparison (e.g. pneumatic launch). 5 is purely kinematic (speed and climb rate only, no accelerometer condition).
     // @Values: 0:LegacyPeak,1:EarlyCoast,2:EarlyCoast1g,3:PostImpulse,4:PostImpulseFast,5:ClimbingFast
     // @User: Advanced
     AP_GROUPINFO("THROW_DETECT", 23, ParametersG2, throw_detect, (float)ModeThrow::DetectMethod::LegacyPeak),
 
     // @Param: THROW_ACCEL_MAX
     // @DisplayName: Throw coast accel threshold
-    // @Description: Maximum accelerometer magnitude in g units for early coast detection (THROW_DETECT 1,3,4,5). Lower values wait longer; higher values start earlier after the launch pulse. Typical starting value 0.7.
-    // @Units: g
+    // @Description: Maximum accelerometer magnitude in g units for early coast detection (THROW_DETECT 1,3,4). Lower values wait longer; higher values start earlier after the launch pulse. Typical starting value 0.7.
+    // @Units: gravities
     // @Range: 0.1 1.5
     // @Increment: 0.05
     // @User: Advanced
@@ -1231,8 +1231,8 @@ const AP_Param::GroupInfo ParametersG2::var_info2[] = {
 
     // @Param: THROW_IMPULSE_G
     // @DisplayName: Throw launch impulse threshold
-    // @Description: Accelerometer magnitude in g that must be seen once to latch a launch impulse (THROW_DETECT 3 and 4). Set well below the launch peak (e.g. 8 when peak is ~25-40 g) and above normal handling bumps.
-    // @Units: g
+    // @Description: Accelerometer magnitude in g that must be seen once to latch a launch impulse (THROW_DETECT 3 and 4). Set well below the launch peak (e.g. 8 when peak is ~25-40 g) and above normal handling bumps. The latch expires after 5 seconds without a completed detection.
+    // @Units: gravities
     // @Range: 1.5 40
     // @Increment: 0.5
     // @User: Advanced
