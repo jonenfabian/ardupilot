@@ -8386,6 +8386,35 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
                                        (tdelta, max_good_tdelta))
         self.progress("Vehicle returned")
 
+    def ThrowModeEarlyDetect(self):
+        '''Fly Throw Mode with each early detection method (THROW_DETECT 1-5)'''
+        for detect in 1, 2, 3, 4, 5:
+            self.progress("Testing THROW_DETECT=%u" % detect)
+            self.set_parameters({
+                "THROW_NEXTMODE": 6,
+                "THROW_DETECT": detect,
+                "THROW_IMPULSE_G": 2,  # SIM_SHOVE peaks well below the real-launch 8 g default
+                "SIM_SHOVE_Z": -30,
+                "SIM_SHOVE_X": -20,
+            })
+            self.change_mode('THROW')
+            self.wait_ready_to_arm()
+            self.arm_vehicle()
+            self.context_push()
+            self.context_collect('STATUSTEXT')
+            try:
+                self.set_parameter("SIM_SHOVE_TIME", 500)
+            except ValueError:
+                # the shove resets this to zero
+                pass
+
+            self.wait_statustext("throw detected - spooling motors (detect %u)" % detect,
+                                 check_context=True)
+            self.wait_mode('RTL')
+            self.wait_rtl_complete()
+            self.context_pop()
+            self.progress("THROW_DETECT=%u OK" % detect)
+
     def ThrowModeRPMMin(self):
         '''Fly Throw Mode - with a minimum RPM set'''
         self.ThrowModeRPMMin_main()
@@ -15006,6 +15035,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         '''return list of all tests'''
         ret = ([
              self.ThrowMode,
+             self.ThrowModeEarlyDetect,
              self.ThrowModeRPMMin,
              self.BrakeMode,
              self.RecordThenPlayMission,
