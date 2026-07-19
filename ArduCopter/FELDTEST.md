@@ -1,272 +1,209 @@
-# Throw-Erkennung — Feldanleitung (Basis: ArduCopter 4.6.3)
+# FELDTEST — Wurferkennung + Power-Climb
 
-**Ziel:** Sechs Detektions-Varianten (`THROW_DETECT` 0–5) am Katapult vergleichen,
-ohne bei jedem Wurf umkonfigurieren zu müssen.
+**Ziel:** Zwei Testcases am Katapult fliegen. In beiden steigt die Drohne nach der
+Wurferkennung erst **einige Sekunden mit festem Schub** weiter (Power-Climb), damit
+sich die Sensoren vom Abschuss erholen, und geht erst danach in den normalen
+Schwebeflug über.
+
+- **Testcase 1:** Standard-Erkennung + Power-Climb
+- **Testcase 2:** Früh-Erkennung (Motorstart früher) + Power-Climb
+- *(Optional: Baseline-Referenz = Standard-Erkennung ohne Power-Climb, wie Juli-Tests)*
 
 **Basis dieser Firmware:** exakt **ArduCopter 4.6.3 (`92b0cd78`)** — dieselbe
-Version wie die geflogene Baseline (Juli-Logs). Unterschiede zur Baseline sind
-damit ausschließlich die Throw-Detection-Änderungen dieses Branches.
+Version wie die Juli-Baseline. Branch: `fabian/throw-detect-variants-4.6`
+(https://github.com/jonenfabian/ardupilot/tree/fabian/throw-detect-variants-4.6)
 
-**Voraussetzungen:**
-
-- Laptop mit **Mission Planner**
-- USB-Kabel zum Autopiloten
-- Firmware aus Branch `fabian/throw-detect-variants-4.6`
-  (https://github.com/jonenfabian/ardupilot/tree/fabian/throw-detect-variants-4.6)
-- Freigegebenes Testgelände, Not-Disarm, übliche Sicherheitsmaßnahmen
-
-Die Parameter (`THROW_DETECT` usw.) sind nur in dieser Firmware enthalten. Ablauf:
-Firmware bauen (`.apj`) → mit Mission Planner flashen → verbinden → Parameter setzen → fliegen.
+**Ihr braucht:** Laptop mit Mission Planner, USB-Kabel, freigegebenes Testgelände
+mit **viel Luftraum nach oben** (siehe Kapitel 5), Not-Disarm griffbereit.
 
 ---
 
-## 1. Firmware flashen
+## 1. Firmware bauen und flashen
 
-### 1.1 Vorbereitung
-
-- Props ab oder gesichert.
-- Bestehende Parameter sichern: Mission Planner → verbinden → **CONFIG** →
-  **Full Parameter List** → **Save to file**.
-  ([Loading Firmware](https://ardupilot.org/copter/docs/common-loading-firmware-onto-pixhawk.html))
-
-### 1.2 Firmware bauen (`.apj`)
-
-Für das jeweilige Board bauen:
+### 1.1 Bauen (`.apj`)
 
 ```text
-./waf configure --board <BOARD_ID>
+git fetch && git checkout fabian/throw-detect-variants-4.6
+git submodule update --init --recursive
+./waf configure --board CubeOrangePlus
 ./waf copter
 ```
 
-Ergebnis unter `build/<board>/bin/arducopter.apj`. `<board>` exakt der Board-Name,
-der auch sonst verwendet wird.
+Ergebnis: `build/CubeOrangePlus/bin/arducopter.apj`.
 
-### 1.3 Custom Firmware flashen
+### 1.2 Flashen im Mission Planner
 
-Siehe [Loading Firmware](https://ardupilot.org/copter/docs/common-loading-firmware-onto-pixhawk.html),
-Abschnitt *Custom Firmware*:
+1. Vorher Parameter sichern: verbinden → **CONFIG → Full Parameter List → Save to file**.
+2. Trennen (Disconnect). Autopilot per USB direkt (kein Hub) anschließen.
+3. **SETUP → Install Firmware** → unten **Load custom firmware** klicken.
+   (Link nicht sichtbar? **CONFIG → Planner → Layout: Advanced** einstellen.)
+4. Die gebaute `arducopter.apj` auswählen, Meldungen bis `Upload Done` abwarten.
+5. Einige Sekunden warten, dann **Connect**.
 
-1. Autopilot per USB verbinden (direkter Port, kein Hub).
-2. Mission Planner starten, COM-Port wählen (oder AUTO), Baud i. d. R. **115200**.
-3. **Noch nicht** auf Connect drücken.
-4. **SETUP → Install Firmware**.
-5. **Load custom firmware** klicken.
-   (Ist der Link ausgeblendet: **CONFIG → Planner → Layout: Advanced**.)
-6. `arducopter.apj` wählen (nicht `.hex`, außer bei bewusstem DFU-Einsatz).
-7. Anweisungen befolgen; Statusmeldungen `erase… / program… / verify… / Upload Done` abwarten.
-8. Einige Sekunden warten, dann **Connect**.
+### 1.3 Prüfen, ob die richtige Firmware läuft
 
-### 1.4 Firmware prüfen
-
-**CONFIG → Full Parameter List → Refresh Params**, nach `THROW_DETECT` suchen.
-
-| Ergebnis | Bedeutung |
-|----------|-----------|
-| Parameter sichtbar | Korrekte Firmware — weiter mit Kapitel 2 |
-| Parameter fehlt | Falsche Firmware oder falsches Board — erneut flashen |
+**CONFIG → Full Parameter List → Refresh Params** → oben rechts ins Suchfeld
+`THROW_CLIMB` eintippen. Erscheinen `THROW_CLIMB_S` und `THROW_CLIMB_THR`,
+ist die richtige Firmware drauf. Fehlen sie → falsche Firmware, zurück zu 1.2.
 
 ---
 
-## 2. Parameter setzen
+## 2. Parameter einstellen im Mission Planner — Schritt für Schritt
 
-1. **Connect**.
-2. **CONFIG → Full Parameter List**.
-3. Nach `THROW` suchen, Werte eintragen, **Write Params**.
-4. Optional **Refresh Params** zur Kontrolle.
+So ändert ihr **jeden** Parameter in dieser Anleitung:
 
-`Write Params` schreibt in den Autopiloten, `Refresh Params` lädt neu vom Gerät.
-([Mission Planner Config](https://ardupilot.org/planner/docs/mission-planner-configuration-and-tuning.html))
+1. Drohne verbinden: oben rechts COM-Port wählen (oder AUTO), Baud **115200**, **Connect**.
+2. Oben in der Menüleiste auf **CONFIG** klicken.
+3. Links im Menü **Full Parameter List** wählen.
+4. Rechts oben ins **Suchfeld** den Parameternamen tippen (z. B. `THROW`) —
+   die Liste filtert sich automatisch.
+5. In der Zeile des Parameters in die Spalte **Value** klicken und den neuen
+   Wert eintragen.
+6. Rechts auf **Write Params** klicken — erst damit landet der Wert auf der Drohne.
+7. Zur Kontrolle **Refresh Params** klicken und den Wert nochmal ablesen.
+
+Die Statusmeldungen der Drohne (z. B. `throw detected`, `power climb`) seht ihr
+unter **DATA** (oben links) → Reiter **Messages** (unten links).
 
 ---
 
-## 3. Feste Werte (einmalig, vor allen Versuchen)
+## 3. Feste Werte (einmalig vor allen Versuchen setzen)
 
-Einmal setzen, **Write Params**, danach pro Versuch nur `THROW_DETECT` ändern.
+Alle nach Schema aus Kapitel 2 setzen, am Ende einmal **Write Params**:
 
 | Parameter | Wert | Bedeutung |
 |-----------|------|-----------|
 | `THROW_TYPE` | `0` | Wurf nach oben |
-| `THROW_ALT_MIN` | `0` | keine Min-Höhe |
-| `THROW_ALT_MAX` | `0` | keine Max-Höhe |
-| `THROW_NEXTMODE` | `5` | danach Loiter |
+| `THROW_ALT_MIN` | `0` | keine Min-Höhe für Erkennung |
+| `THROW_ALT_MAX` | `0` | keine Max-Höhe für Erkennung |
+| `THROW_NEXTMODE` | `5` | nach dem Fangen: Loiter |
 | `THROW_MOT_START` | `0` | Props vor Erkennung aus |
-| `THROW_ACCEL_MAX` | `0.7` | Schwelle „Impuls vorbei" (Variante 1/3/4) |
-| `THROW_DET_MS` | `80` | Haltezeit (ms) = Startzeitpunkt-Regler, siehe Kap. 4 |
-| `THROW_SPD_MIN` | `1.5` | Mindestgeschwindigkeit (siehe Hinweis unten) |
+| `THROW_ACCEL_MAX` | `0.7` | Schwelle „Abschuss-Impuls vorbei" |
+| `THROW_DET_MS` | `80` | Haltezeit Früh-Erkennung (nur Testcase 2 relevant) |
+| `THROW_SPD_MIN` | `1.5` | Mindestgeschwindigkeit (aus Juli-Logs abgeleitet — nicht erhöhen!) |
 | `THROW_VELZ_MIN` | `1` | Mindest-Steigrate |
-| `THROW_IMPULSE_G` | `8` | Impuls-Schwelle (Variante 3/4) |
-| `THROW_UPR_THR` | `0.5` | Gas beim Aufrichten (50 %) |
+| `THROW_IMPULSE_G` | `8` | Abschuss-Nachweis (nur Testcase 2) |
+| `THROW_UPR_THR` | `0.5` | Gas beim Aufrichten |
 | `MOT_SPOOL_TIME` | `0.3` | Motor-Hochlaufzeit (s) |
 
-**Hinweis 4.6.3:** `THROW_ALT_ACSND`/`THROW_ALT_DCSND` gibt es auf 4.6.3 **nicht**
-(erst ab 4.7). Nach dem Aufrichten steigt die Drohne fest **+3 m** über die
-Fanghöhe (hartkodiert) — wie in der geflogenen Baseline.
-
-**Hinweis `THROW_SPD_MIN`:** In den Baseline-Logs (Juli 2026) bricht die
-EKF-Geschwindigkeit beim Abschuss durch IMU-Clipping auf 2–5 m/s ein (real
-~13–15 m/s). Mit dem alten Wert `5` hätte keine Früh-Variante ausgelöst
-(alles wäre in den Fallback gelaufen); `1.5` ist als Plausibilitätsschwelle
-aus den Logs abgeleitet.
+Hinweis 4.6.3: Nach dem Power-Climb steigt die Drohne beim Einfangen nochmal fest
+**+3 m** über die aktuelle Höhe (in dieser Version hartkodiert) — das ist normal.
 
 ---
 
-## 4. Die 6 Varianten im Überblick
+## 4. Die Testcases einstellen
 
-```text
-Abschuss (Impuls)  →  freier Aufstieg  →  Scheitelpunkt  →  Abstieg
-      |                     |                   |
- Impuls vorbei         früher Start        später Start (0)
-```
+Pro Testcase nur die folgenden Parameter ändern (Kapitel-2-Schema) → **Write Params** → werfen.
 
-| Versuch | `THROW_DETECT` | Motorstart | Unterscheidung | Einsatz |
-|---------|----------------|------------|----------------|---------|
-| 1 | **0** | spät, am Scheitelpunkt (Steigrate bricht ein) | bisheriges Verhalten, Referenz | Baseline |
-| 2 | **1** | früh, sobald Impuls vorbei und noch steigend | ohne Impuls-Nachweis | Früh-Test |
-| 3 | **2** | früh, etwas großzügiger als 2 | Schwelle „Impuls vorbei" fest bei 1 g statt 0,7 g | A/B 0,7 g vs 1 g |
-| 4 | **3** | früh, nach erkanntem Abschuss-Impuls | wie 2 plus Impuls-Nachweis | Katapult (empfohlen) |
-| 5 | **4** | wie 4, kürzere Haltezeit → früher | gleicher Riegel wie 4, aggressiver | Feintuning |
-| 6 | **5** | früh, rein kinematisch | nur Geschwindigkeit + Steigen, **keine** Accel-Bedingung | Sensor-unabhängiger Vergleich |
+### Testcase 1 — Standard-Erkennung + Power-Climb
 
-**Zusammengefasst:**
+| Parameter | Wert |
+|-----------|------|
+| `THROW_DETECT` | `0` |
+| `THROW_CLIMB_S` | `5` |
+| `THROW_CLIMB_THR` | `0.6` |
 
-- **0** = spät (Scheitelpunkt)
-- **1 / 2** = früh über Accel-Schwelle, ohne Impuls-Nachweis (0,7 g vs. 1,0 g)
-- **3 / 4** = früh, mit Impuls-Nachweis (4 schneller als 3)
-- **5** = früh, rein kinematisch — ignoriert den Beschleunigungssensor komplett
+### Testcase 2 — Früh-Erkennung + Power-Climb
 
-**Sicherheitsnetz:** Bei den Varianten 1–5 läuft die Baseline-Erkennung (0) immer
-parallel mit. Löst die Früh-Variante nicht aus, starten die Motoren spätestens beim
-klassischen Scheitelpunkt-Signal — Meldung dann `(fallback peak)` statt `(detect N)`.
-Ein `(fallback peak)` im Log heißt also: Früh-Variante hat diesen Wurf verpasst —
-bitte als Versuchsergebnis notieren.
+| Parameter | Wert |
+|-----------|------|
+| `THROW_DETECT` | `3` |
+| `THROW_CLIMB_S` | `5` |
+| `THROW_CLIMB_THR` | `0.6` |
 
-**Startzeitpunkt-Regler:** `THROW_DET_MS` (zulässig 20–2000 ms; `THROW_DETECT = 4`
-nutzt den halben Wert) ist eine **Haltezeit, kein blinder Timer**: Die
-Coast-Bedingung (Impuls vorbei, steigt noch, schnell genug) muss so lange
-**ununterbrochen** gelten, erst dann starten die Motoren; jede Unterbrechung setzt
-die Uhr auf null. Effektiv gilt: Motorstart ≈ Ende des Abschuss-Impulses +
-`THROW_DET_MS`.
+Motorstart deutlich früher als bei Testcase 1 (nach dem Abschuss-Impuls statt erst
+bei der Standard-Bestätigung). Löst die Früh-Erkennung nicht aus, übernimmt
+automatisch die Standard-Erkennung (Meldung `fallback peak` statt `detect 3`) —
+bitte notieren, das ist ein Versuchsergebnis. Der Startzeitpunkt lässt sich über
+`THROW_DET_MS` verschieben (80 = früh; größer = später; über ~300 übernimmt der
+Fallback).
 
-**Realität laut Baseline-Logs (Juli 2026):** Am Katapult löst schon die Baseline
-~0,27–0,35 s nach dem Abschuss in ~1,3 m Höhe aus — nicht erst am Scheitelpunkt
-(~1,4 s). Grund: Die EKF-Steigrate bricht durch IMU-Clipping künstlich ein und
-erfüllt die Bestätigung sofort. **Nutzbarer Verstellbereich auf diesem Fahrzeug:
-Motorstart ~+0,15 s (`THROW_DET_MS` = 20) bis ~+0,45 s (`THROW_DET_MS` ≈ 300) nach
-dem Abschuss.** Größere Werte laufen ins Leere: Das Erkennungsfenster endet, sobald
-die EKF-Steigrate unter `THROW_VELZ_MIN` fällt (in den Logs ~0,4–0,5 s nach
-Abschuss) — dann übernimmt der Fallback bei ~+0,3 s.
+### Baseline-Referenz (nur bei Bedarf, entspricht den Juli-Flügen)
+
+| Parameter | Wert |
+|-----------|------|
+| `THROW_DETECT` | `0` |
+| `THROW_CLIMB_S` | `0` |
 
 ---
 
-## 5. Die 6 Varianten im Detail
+## 5. Power-Climb: Was passiert, und was ihr einstellen könnt
 
-Pro Versuch nur `THROW_DETECT` setzen → **Write Params** → Wurf.
+**Ablauf:** Erkennung → Motoren laufen hoch → Drohne richtet sich auf → **steigt
+`THROW_CLIMB_S` Sekunden mit festem Gas `THROW_CLIMB_THR` senkrecht** (ohne auf die
+gestörten Höhen-/Geschwindigkeitsschätzungen zu hören) → normale Höhenregelung
+(+3 m) → Position halten → Loiter.
 
-### Versuch 1 — Baseline (`THROW_DETECT = 0`)
+**Die zwei Feintuning-Regler:**
 
-Motorstart, sobald der Scheitelpunkt der Bahn erkannt wird (Steigrate lässt nach).
-Kein Früh-Start; dient als Vergleichsbasis für die neuen Varianten.
+| Parameter | Bedeutung | Werte zum Testen |
+|-----------|-----------|------------------|
+| `THROW_CLIMB_S` | Dauer des Steigflugs in Sekunden. `0` = Funktion aus. | `3` → `5` → `10` (steigern, nur wenn nötig) |
+| `THROW_CLIMB_THR` | Schub während des Steigflugs. `0.5` = 50 %, `0.6` = 60 %, `0.7` = 70 % Gas. | Start `0.6`; **muss über dem Schwebe-Gas (~0.33) liegen**, sonst sinkt sie! |
 
-### Versuch 2 — EarlyCoast, 0,7 g (`THROW_DETECT = 1`)
+**Wie hoch steigt sie dabei? (Schätzung — nach den ersten Logs prüfen!)**
+Bei Schub 0.6 beschleunigt die Drohne anfangs mit grob 8 m/s² nach oben (real
+bremst der Luftwiderstand). Grobe Richtwerte inklusive Abschussschwung:
 
-Motorstart, sobald der Abschuss-Impuls vorbei ist (< ca. 0,7 g), die Drohne noch
-steigt und schnell genug ist — vor dem Scheitelpunkt. Deutlich früher als 0, ohne
-Impuls-Nachweis (durch Speed-Schwellen abgesichert).
+| `THROW_CLIMB_S` | erwarteter Höhengewinn |
+|-----------------|------------------------|
+| 3 s | ~40–70 m |
+| 5 s | ~100–150 m |
+| 10 s | 200 m+ — **nur mit großzügigem, freigegebenem Luftraum!** |
 
-### Versuch 3 — EarlyCoast, 1 g (`THROW_DETECT = 2`)
+Dazu kommen nach Ende des Steigflugs noch ~10–25 m Überschwinger, bis die
+Höhenregelung die Fahrt abgebaut hat. `THROW_ALT_MAX` begrenzt das **nicht**
+(wirkt nur auf die Erkennung, nicht auf den Climb).
 
-Wie Versuch 2, aber „Impuls vorbei" gilt bereits unter 1,0 g (fester Wert). Oft eine
-Spur früher als 2. Direkter Vergleich der beiden Schwellen.
-
-### Versuch 4 — PostImpulse (`THROW_DETECT = 3`)
-
-Erst muss ein starker Abschuss-Impuls erkannt werden (z. B. ≥ 8 g), danach — bei
-nachlassendem Druck und weiterem Steigen — früher Motorstart. Zusätzliche
-Absicherung gegen Fehlauslösung. Primärer Kandidat für Katapult/Druckluft.
-Der Impuls-Nachweis verfällt automatisch nach 5 s ohne vollständige Erkennung
-(z. B. Fehlstart).
-
-### Versuch 5 — PostImpulse, schneller (`THROW_DETECT = 4`)
-
-Wie Versuch 4, aber kürzere Haltezeit → etwas früherer Start. Nächste Stufe, falls
-3 zu spät auslöst; zurück zu 3, falls 4 zu nervös reagiert.
-
-### Versuch 6 — ClimbingFast, rein kinematisch (`THROW_DETECT = 5`)
-
-Früher Start allein über die Bewegung: schnell genug (`THROW_SPD_MIN`) und
-steigend (`THROW_VELZ_MIN`) über die Haltezeit — der Beschleunigungssensor wird
-**nicht** ausgewertet. Vergleichstest, ob die Accel-Bedingung (Varianten 1–4)
-überhaupt nötig ist oder die EKF-Geschwindigkeit allein reicht. Löst dadurch ggf.
-noch während des Abschusses aus — höchstes Risiko-Profil der Früh-Varianten.
-
-### Empfohlene Reihenfolge (absteigend nach Erfolgswahrscheinlichkeit)
-
-| Wurf | `THROW_DETECT` | Grund |
-|------|----------------|-------|
-| 1 | `3` | PostImpulse — 8-g-Latch in den Baseline-Logs validiert, robusteste Absicherung |
-| 2 | `4` | wie 3, aggressiveres Timing (halbe Haltezeit) |
-| 3 | `2` | 1-g-Gate — laut Logs stabiler als 0,7 g |
-| 4 | `1` | 0,7-g-Gate — auf harten Würfen grenzwertig (Coast-Spitzen bis 0,84 g) |
-| 5 | `5` | rein kinematisch — EKF-Speed bricht beim Abschuss ein, endet vermutlich im Fallback |
-| 6 | `0` | Baseline-Referenz — bereits durch die Juli-Logs abgedeckt, nur bei Bedarf wiederholen |
+**Abbrechen im Flug:** Moduswechsel am Sender (z. B. auf Loiter/AltHold) beendet
+alles sofort — Daumen am Schalter. Zweiter Weg: `THROW_CLIMB_S` am Laptop auf `0`
+setzen + Write Params — der Steigflug endet augenblicklich.
 
 ---
 
 ## 6. Ablauf pro Wurf
 
-1. Feste Parameter geprüft (Kapitel 3).
-2. `THROW_DETECT` setzen → **Write Params**.
-3. Flugmodus **Throw** (Modus 18).
-4. Armieren (Throw wählen, dann armieren).
-5. Abschuss.
-6. Bodenmeldungen prüfen, z. B. `waiting for throw`,
-   `throw detected - spooling motors (detect 3)` (Zahl = Variante).
-   `(fallback peak)` = Früh-Variante hat nicht ausgelöst, Baseline hat übernommen.
-7. Notieren: Variante, Fangverhalten, Log behalten.
-8. Nächster Versuch: nur `THROW_DETECT` ändern.
+1. Testcase-Parameter gesetzt (Kapitel 4), **Write Params**.
+2. Flugmodus **Throw** wählen (Modus 18), dann armieren. **Armierte Drohne nicht
+   tragen** — erst im Katapult armieren.
+3. Abschuss.
+4. Meldungen unter **DATA → Messages** prüfen. Erwartete Reihenfolge:
+   - `waiting for throw`
+   - `throw detected - spooling motors (detect 0)` bzw. `(detect 3)`
+     — bei Testcase 2 ggf. `(fallback peak)` = Früh-Erkennung hat verpasst, notieren!
+   - `uprighted - power climb 5.0s`
+   - `power climb done - controlling height`
+   - `height achieved - controlling position`
+5. Notieren: Testcase, Einstellwerte, Verhalten (Trudeln? Höhe? ruhiges Fangen?), Log sichern.
 
 ---
 
 ## 7. Sicherheit
 
-- Props, Personen, Freifeld beachten; Not-Disarm griffbereit.
-- Varianten 1–5 schalten die Motoren früher ein; Variante 5 kann mangels
-  Accel-Bedingung am frühesten (ggf. noch im Abschuss) auslösen.
-- Mit `THROW_SPD_MIN = 1.5` ist die kinematische Hürde niedrig: **armierte
-  Drohne nicht tragen** — erst im Katapult armieren, nach Abbruch sofort
-  disarmen. Gilt besonders für Variante 2 (1-g-Gate) und Variante 5 (kein
-  Accel-Gate).
-- Löst eine Früh-Variante nicht aus, übernimmt automatisch die
-  Baseline-Erkennung (`fallback peak`) — kein Motorstart erst bei
-  ungesundem EKF (wie bei der Baseline auch).
-- **Nach einem Fehlstart (Abschuss ohne Flug): disarmen und neu armieren.**
-  Bei Variante 3/4 verfällt der Impuls-Nachweis zwar nach 5 s automatisch,
-  Disarm ist trotzdem die saubere Rücksetzung.
-- `THROW_MOT_START = 1` (nicht in den ersten 6 Versuchen): Props können vor dem
-  Abschuss drehen — nur mit bewusstem Sicherheitskonzept.
+- Props, Personen, Freifeld; Not-Disarm griffbereit. Bei Testcase 2 drehen die
+  Props schon wenige Meter über dem Katapult an — niemand über der Austrittsbahn.
+- **Luftraum:** Höhengewinn-Tabelle in Kapitel 5 beachten; mit 3 s beginnen.
+  Sichtlinie halten.
+- `THROW_CLIMB_THR` nie unter das Schwebe-Gas (~0.33) stellen.
+- Nach Fehlstart (Abschuss ohne Flug): **disarmen, neu armieren.**
+- Bricht ein Versuch mit der Meldung „EKF Failsafe" ab (Drohne geht in LAND
+  mitten im Steigflug): Für die Testreihe darf `FS_EKF_THRESH` von `0.8` auf
+  `1.0` gesetzt werden (Kapitel-2-Schema). **Nach den Tests zurückstellen.**
+- Die Früh-Erkennungs-Methoden 1–5 und das Fallback-Sicherheitsnetz sind weiter
+  in der Firmware; Standard-Testplan sind aber nur die zwei Cases oben.
 
 ---
 
-## 8. Optionale Folgetests
+## 8. Technik (für die Auswertung)
 
-Nur bei einer bewährten Variante, einzeln:
-
-| Parameter | Test | Zurück |
-|-----------|------|--------|
-| `THROW_MOT_START` | `1` | `0` |
-| `MOT_SPOOL_TIME` | `0.1` | `0.3` |
-
-Nicht mit den ersten 6 Versuchen mischen.
-
----
-
-## 9. Technik
-
-- Branch: `fabian/throw-detect-variants-4.6` (Basis: Tag `Copter-4.6.3`, `92b0cd78`)
-- Code: `ArduCopter/mode_throw.cpp`, Parameter in `Parameters.cpp`
-- Parameter-Indizes identisch zum Master-Branch — Werte überleben einen
-  Firmware-Wechsel zwischen beiden Branches.
-- SITL-Build und Autotests (`ThrowModeEarlyDetect`, `ThrowModeDetectFallback`) geprüft.
+- Branch `fabian/throw-detect-variants-4.6`, Basis Tag `Copter-4.6.3` (`92b0cd78`).
+- Code: `ArduCopter/mode_throw.cpp`; Parameter in `Parameters.cpp` (Indizes
+  identisch zum Master-Branch — Werte überleben Firmware-Wechsel).
+- Log-Auswertung: THRO-Message, **Stage-Nummern in diesem Build:**
+  0 Disarmed, 1 Detecting, 2 Spool, 3 Uprighting, **4 PowerClimb**,
+  5 HgtStabilise, 6 PosHold.
+- SITL-Autotests: `ThrowMode`, `ThrowModeEarlyDetect`, `ThrowModeDetectFallback`,
+  `ThrowModePowerClimb`.
 
 Quellen:
 
