@@ -38,6 +38,7 @@ void ModeThrow::throw_reset_detection_state()
     early_condition_start_ms = 0;
     impulse_seen = false;
     impulse_seen_ms = 0;
+    detected_via_fallback = false;
 }
 
 // runs the throw to start controller
@@ -63,8 +64,12 @@ void ModeThrow::run()
         throw_reset_detection_state();
 
     } else if (stage == Throw_Detecting && throw_detected()) {
-        gcs().send_text(MAV_SEVERITY_INFO,"throw detected - spooling motors (detect %u)",
-                        (unsigned)g2.throw_detect.get());
+        if (detected_via_fallback) {
+            gcs().send_text(MAV_SEVERITY_INFO,"throw detected - spooling motors (fallback peak)");
+        } else {
+            gcs().send_text(MAV_SEVERITY_INFO,"throw detected - spooling motors (detect %u)",
+                            (unsigned)g2.throw_detect.get());
+        }
         copter.set_land_complete(false);
         stage = Throw_Wait_Throttle_Unlimited;
 
@@ -411,35 +416,56 @@ bool ModeThrow::throw_detected()
     }
 
     const DetectMethod method = g2.throw_detect;
-    const uint32_t debounce_ms = (uint32_t)constrain_int16(g2.throw_detect_ms, 20, 500);
+    const uint32_t debounce_ms = (uint32_t)constrain_int16(g2.throw_detect_ms, 20, 2000);
 
+    // legacy peak detection runs every loop for every method: it is the primary
+    // detection for LegacyPeak and the safety fallback for the early methods, so
+    // a launch whose early conditions are never satisfied still starts the motors
+    // once the classic peak signature is seen
+    const bool legacy_detected = throw_detected_legacy();
+
+    bool early_detected = false;
     switch (method) {
     case DetectMethod::LegacyPeak:
-        return throw_detected_legacy();
+        break;
 
     case DetectMethod::EarlyCoast:
-        return throw_detected_early_coast(MAX(g2.throw_accel_max_g.get(), 0.1f), debounce_ms, false);
+        early_detected = throw_detected_early_coast(MAX(g2.throw_accel_max_g.get(), 0.1f), debounce_ms, false);
+        break;
 
     case DetectMethod::EarlyCoast1g:
         // fixed 1.0 g coast threshold (legacy "launch complete"), no peak delta-v confirm
-        return throw_detected_early_coast(1.0f, debounce_ms, false);
+        early_detected = throw_detected_early_coast(1.0f, debounce_ms, false);
+        break;
 
     case DetectMethod::PostImpulse:
-        return throw_detected_early_coast(MAX(g2.throw_accel_max_g.get(), 0.1f), debounce_ms, true);
+        early_detected = throw_detected_early_coast(MAX(g2.throw_accel_max_g.get(), 0.1f), debounce_ms, true);
+        break;
 
     case DetectMethod::PostImpulseFast: {
         // more aggressive: half debounce, minimum 20 ms
         const uint32_t fast_ms = MAX(debounce_ms / 2U, 20U);
-        return throw_detected_early_coast(MAX(g2.throw_accel_max_g.get(), 0.1f), fast_ms, true);
+        early_detected = throw_detected_early_coast(MAX(g2.throw_accel_max_g.get(), 0.1f), fast_ms, true);
+        break;
     }
 
     case DetectMethod::ClimbingFast:
         // purely kinematic: speed + climb rate + height window, no accelerometer gate
-        return throw_detected_early_coast(0.0f, debounce_ms, false);
-
-    default:
-        return throw_detected_legacy();
+        early_detected = throw_detected_early_coast(0.0f, debounce_ms, false);
+        break;
     }
+
+    if (early_detected) {
+        detected_via_fallback = false;
+        return true;
+    }
+    if (legacy_detected) {
+        // an unknown THROW_DETECT value also ends up here: no early method ran,
+        // so the legacy path is the only (and safe) detection
+        detected_via_fallback = (method != DetectMethod::LegacyPeak);
+        return true;
+    }
+    return false;
 }
 
 bool ModeThrow::throw_attitude_good() const

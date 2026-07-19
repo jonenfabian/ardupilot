@@ -1935,6 +1935,7 @@ private:
     uint32_t early_condition_start_ms;  // when early-coast condition first became true
     bool impulse_seen;                  // true after high-g launch pulse observed
     uint32_t impulse_seen_ms;           // system time the launch impulse was last observed
+    bool detected_via_fallback;         // true if the legacy peak fallback triggered instead of the selected early method
 };
 
 #if MODE_TURTLE_ENABLED

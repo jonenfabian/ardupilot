@@ -8415,6 +8415,34 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             self.context_pop()
             self.progress("THROW_DETECT=%u OK" % detect)
 
+    def ThrowModeDetectFallback(self):
+        '''Early detect methods fall back to legacy peak detection'''
+        # THROW_IMPULSE_G far above what SIM_SHOVE produces: PostImpulse can
+        # never latch its impulse, so the legacy peak fallback must start the motors
+        self.set_parameters({
+            "THROW_NEXTMODE": 6,
+            "THROW_DETECT": 3,
+            "THROW_IMPULSE_G": 40,
+            "SIM_SHOVE_Z": -30,
+            "SIM_SHOVE_X": -20,
+        })
+        self.change_mode('THROW')
+        self.wait_ready_to_arm()
+        self.arm_vehicle()
+        self.context_push()
+        self.context_collect('STATUSTEXT')
+        try:
+            self.set_parameter("SIM_SHOVE_TIME", 500)
+        except ValueError:
+            # the shove resets this to zero
+            pass
+
+        self.wait_statustext("throw detected - spooling motors (fallback peak)",
+                             check_context=True)
+        self.wait_mode('RTL')
+        self.wait_rtl_complete()
+        self.context_pop()
+
     def ThrowModeRPMMin(self):
         '''Fly Throw Mode - with a minimum RPM set'''
         self.ThrowModeRPMMin_main()
@@ -15036,6 +15064,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         ret = ([
              self.ThrowMode,
              self.ThrowModeEarlyDetect,
+             self.ThrowModeDetectFallback,
              self.ThrowModeRPMMin,
              self.BrakeMode,
              self.RecordThenPlayMission,

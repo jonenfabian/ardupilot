@@ -89,12 +89,18 @@ Einmal setzen, **Write Params**, danach pro Versuch nur `THROW_DETECT` ändern.
 | `THROW_NEXTMODE` | `5` | danach Loiter |
 | `THROW_MOT_START` | `0` | Props vor Erkennung aus |
 | `THROW_ACCEL_MAX` | `0.7` | Schwelle „Impuls vorbei" (Variante 1/3/4) |
-| `THROW_DET_MS` | `80` | Haltezeit (ms), bis Bedingung gilt |
-| `THROW_SPD_MIN` | `5` | Mindestgeschwindigkeit |
+| `THROW_DET_MS` | `80` | Haltezeit (ms) = Startzeitpunkt-Regler, siehe Kap. 4 |
+| `THROW_SPD_MIN` | `1.5` | Mindestgeschwindigkeit (siehe Hinweis unten) |
 | `THROW_VELZ_MIN` | `1` | Mindest-Steigrate |
 | `THROW_IMPULSE_G` | `8` | Impuls-Schwelle (Variante 3/4) |
 | `THROW_UPR_THR` | `0.5` | Gas beim Aufrichten (50 %) |
 | `MOT_SPOOL_TIME` | `0.3` | Motor-Hochlaufzeit (s) |
+
+**Hinweis `THROW_SPD_MIN`:** In den Baseline-Logs (Juli 2026) bricht die
+EKF-Geschwindigkeit beim Abschuss durch IMU-Clipping auf 2–5 m/s ein (real
+~13–15 m/s). Mit dem alten Wert `5` hätte keine Früh-Variante ausgelöst
+(alles wäre in den Fallback gelaufen); `1.5` ist als Plausibilitätsschwelle
+aus den Logs abgeleitet.
 
 ---
 
@@ -121,6 +127,28 @@ Abschuss (Impuls)  →  freier Aufstieg  →  Scheitelpunkt  →  Abstieg
 - **1 / 2** = früh über Accel-Schwelle, ohne Impuls-Nachweis (0,7 g vs. 1,0 g)
 - **3 / 4** = früh, mit Impuls-Nachweis (4 schneller als 3)
 - **5** = früh, rein kinematisch — ignoriert den Beschleunigungssensor komplett
+
+**Sicherheitsnetz:** Bei den Varianten 1–5 läuft die Baseline-Erkennung (0) immer
+parallel mit. Löst die Früh-Variante nicht aus, starten die Motoren spätestens beim
+klassischen Scheitelpunkt-Signal — Meldung dann `(fallback peak)` statt `(detect N)`.
+Ein `(fallback peak)` im Log heißt also: Früh-Variante hat diesen Wurf verpasst —
+bitte als Versuchsergebnis notieren.
+
+**Startzeitpunkt-Regler:** `THROW_DET_MS` (zulässig 20–2000 ms; `THROW_DETECT = 4`
+nutzt den halben Wert) ist eine **Haltezeit, kein blinder Timer**: Die
+Coast-Bedingung (Impuls vorbei, steigt noch, schnell genug) muss so lange
+**ununterbrochen** gelten, erst dann starten die Motoren; jede Unterbrechung setzt
+die Uhr auf null. Effektiv gilt: Motorstart ≈ Ende des Abschuss-Impulses +
+`THROW_DET_MS`.
+
+**Realität laut Baseline-Logs (Juli 2026):** Am Katapult löst schon die Baseline
+~0,27–0,35 s nach dem Abschuss in ~1,3 m Höhe aus — nicht erst am Scheitelpunkt
+(~1,4 s). Grund: Die EKF-Steigrate bricht durch IMU-Clipping künstlich ein und
+erfüllt die Bestätigung sofort. **Nutzbarer Verstellbereich auf diesem Fahrzeug:
+Motorstart ~+0,15 s (`THROW_DET_MS` = 20) bis ~+0,45 s (`THROW_DET_MS` ≈ 300) nach
+dem Abschuss.** Größere Werte laufen ins Leere: Das Erkennungsfenster endet, sobald
+die EKF-Steigrate unter `THROW_VELZ_MIN` fällt (in den Logs ~0,4–0,5 s nach
+Abschuss) — dann übernimmt der Fallback bei ~+0,3 s.
 
 ---
 
@@ -165,20 +193,16 @@ steigend (`THROW_VELZ_MIN`) über die Haltezeit — der Beschleunigungssensor wi
 überhaupt nötig ist oder die EKF-Geschwindigkeit allein reicht. Löst dadurch ggf.
 noch während des Abschusses aus — höchstes Risiko-Profil der Früh-Varianten.
 
-### Empfohlene Reihenfolge
+### Empfohlene Reihenfolge (absteigend nach Erfolgswahrscheinlichkeit)
 
-Vollständig: `THROW_DETECT` = 0, 1, 2, 3, 4, 5.
-
-Verkürzt:
-
-| Reihenfolge | `THROW_DETECT` | Grund |
-|-------------|----------------|-------|
-| 1 | `0` | Baseline |
-| 2 | `3` | Katapult + früh |
-| 3 | `4` | noch früher |
-| 4 | `1` | früh ohne Impuls |
-| 5 | `2` | 0,7 g vs 1 g |
-| 6 | `5` | rein kinematisch nötig? |
+| Wurf | `THROW_DETECT` | Grund |
+|------|----------------|-------|
+| 1 | `3` | PostImpulse — 8-g-Latch in den Baseline-Logs validiert, robusteste Absicherung |
+| 2 | `4` | wie 3, aggressiveres Timing (halbe Haltezeit) |
+| 3 | `2` | 1-g-Gate — laut Logs stabiler als 0,7 g |
+| 4 | `1` | 0,7-g-Gate — auf harten Würfen grenzwertig (Coast-Spitzen bis 0,84 g) |
+| 5 | `5` | rein kinematisch — EKF-Speed bricht beim Abschuss ein, endet vermutlich im Fallback |
+| 6 | `0` | Baseline-Referenz — bereits durch die Juli-Logs abgedeckt, nur bei Bedarf wiederholen |
 
 ---
 
@@ -191,6 +215,7 @@ Verkürzt:
 5. Abschuss.
 6. Bodenmeldungen prüfen, z. B. `waiting for throw`,
    `throw detected - spooling motors (detect 3)` (Zahl = Variante).
+   `(fallback peak)` = Früh-Variante hat nicht ausgelöst, Baseline hat übernommen.
 7. Notieren: Variante, Fangverhalten, Log behalten.
 8. Nächster Versuch: nur `THROW_DETECT` ändern.
 
@@ -201,6 +226,13 @@ Verkürzt:
 - Props, Personen, Freifeld beachten; Not-Disarm griffbereit.
 - Varianten 1–5 schalten die Motoren früher ein; Variante 5 kann mangels
   Accel-Bedingung am frühesten (ggf. noch im Abschuss) auslösen.
+- Mit `THROW_SPD_MIN = 1.5` ist die kinematische Hürde niedrig: **armierte
+  Drohne nicht tragen** — erst im Katapult armieren, nach Abbruch sofort
+  disarmen. Gilt besonders für Variante 2 (1-g-Gate) und Variante 5 (kein
+  Accel-Gate).
+- Löst eine Früh-Variante nicht aus, übernimmt automatisch die
+  Baseline-Erkennung (`fallback peak`) — kein Motorstart erst bei
+  ungesundem EKF (wie bei der Baseline auch).
 - **Nach einem Fehlstart (Abschuss ohne Flug): disarmen und neu armieren.**
   Bei Variante 3/4 verfällt der Impuls-Nachweis zwar nach 5 s automatisch,
   Disarm ist trotzdem die saubere Rücksetzung.

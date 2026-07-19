@@ -1188,7 +1188,7 @@ const AP_Param::GroupInfo ParametersG2::var_info2[] = {
 #if MODE_THROW_ENABLED
     // @Param: THROW_DETECT
     // @DisplayName: Throw detection method
-    // @Description: Selects how Throw mode decides that the vehicle has been launched and motors may start. 0 keeps classic peak confirmation. 1-4 are earlier coast/impulse strategies for field comparison (e.g. pneumatic launch). 5 is purely kinematic (speed and climb rate only, no accelerometer condition).
+    // @Description: Selects how Throw mode decides that the vehicle has been launched and motors may start. 0 keeps classic peak confirmation. 1-4 are earlier coast/impulse strategies for field comparison (e.g. pneumatic launch). 5 is purely kinematic (speed and climb rate only, no accelerometer condition). For methods 1-5 the classic peak detection keeps running as a fallback: if the early method never triggers, motors still start when the legacy peak signature is confirmed.
     // @Values: 0:LegacyPeak,1:EarlyCoast,2:EarlyCoast1g,3:PostImpulse,4:PostImpulseFast,5:ClimbingFast
     // @User: Advanced
     AP_GROUPINFO("THROW_DETECT", 23, ParametersG2, throw_detect, (float)ModeThrow::DetectMethod::LegacyPeak),
@@ -1204,9 +1204,9 @@ const AP_Param::GroupInfo ParametersG2::var_info2[] = {
 
     // @Param: THROW_DET_MS
     // @DisplayName: Throw early detect debounce
-    // @Description: Time in milliseconds that early detection conditions must stay true before motors start (THROW_DETECT 1-5). PostImpulseFast uses half of this value (minimum 20 ms).
+    // @Description: Time in milliseconds that early detection conditions must stay true before motors start (THROW_DETECT 1-5). This is the main dial for how early after launch the motors start: small values start just after the launch impulse ends, larger values move the start later towards the trajectory peak. If set so long that the early condition window closes first, the legacy peak fallback performs the detection instead. PostImpulseFast uses half of this value (minimum 20 ms).
     // @Units: ms
-    // @Range: 20 500
+    // @Range: 20 2000
     // @Increment: 10
     // @User: Advanced
     AP_GROUPINFO("THROW_DET_MS", 25, ParametersG2, throw_detect_ms, 80),
