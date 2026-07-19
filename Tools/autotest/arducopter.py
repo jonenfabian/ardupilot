@@ -8443,6 +8443,42 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         self.wait_rtl_complete()
         self.context_pop()
 
+    def ThrowModePowerClimb(self):
+        '''Fly Throw Mode with open-loop power climb stage before height control'''
+        for detect in 0, 3:  # the two field test cases: standard and PostImpulse detection
+            self.progress("Testing power climb with THROW_DETECT=%u" % detect)
+            self.set_parameters({
+                "THROW_NEXTMODE": 6,
+                "THROW_DETECT": detect,
+                "THROW_IMPULSE_G": 2,  # SIM_SHOVE peaks well below the real-launch 8 g default
+                "THROW_CLIMB_S": 5,
+                "THROW_CLIMB_THR": 0.5,  # modest thrust keeps the SITL apex (and RTL time) low
+                "SIM_SHOVE_Z": -30,
+                "SIM_SHOVE_X": -20,
+            })
+            self.change_mode('THROW')
+            self.wait_ready_to_arm()
+            self.arm_vehicle()
+            self.context_push()
+            self.context_collect('STATUSTEXT')
+            try:
+                self.set_parameter("SIM_SHOVE_TIME", 500)
+            except ValueError:
+                # the shove resets this to zero
+                pass
+
+            self.wait_statustext("throw detected - spooling motors (detect %u)" % detect,
+                                 check_context=True)
+            self.wait_statustext("uprighted - power climb", check_context=True)
+            # sustained climb during the open-loop stage
+            self.wait_climbrate(1, 120, minimum_duration=3)
+            self.wait_statustext("power climb done - controlling height",
+                                 check_context=True)
+            self.wait_mode('RTL', timeout=120)
+            self.wait_rtl_complete()
+            self.context_pop()
+            self.progress("Power climb with THROW_DETECT=%u OK" % detect)
+
     def ThrowModeRPMMin(self):
         '''Fly Throw Mode - with a minimum RPM set'''
         self.ThrowModeRPMMin_main()
@@ -15065,6 +15101,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
              self.ThrowMode,
              self.ThrowModeEarlyDetect,
              self.ThrowModeDetectFallback,
+             self.ThrowModePowerClimb,
              self.ThrowModeRPMMin,
              self.BrakeMode,
              self.RecordThenPlayMission,
