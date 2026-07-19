@@ -39,6 +39,28 @@ void ModeThrow::throw_reset_detection_state()
     impulse_seen = false;
     impulse_seen_ms = 0;
     detected_via_fallback = false;
+    climb_start_ms = 0;
+}
+
+// initialise height stabilisation about the current height; entered either
+// directly after uprighting or after the open-loop power climb stage
+void ModeThrow::enter_hgt_stabilise()
+{
+    stage = Throw_HgtStabilise;
+
+    // initialise the z controller
+    pos_control->init_z_controller_no_descent();
+
+    // initialise the demanded height to 3m above the throw height
+    // we want to rapidly clear surrounding obstacles
+    if (g2.throw_type == ThrowType::Drop) {
+        pos_control->set_pos_desired_z_cm(inertial_nav.get_position_z_up_cm() - 100);
+    } else {
+        pos_control->set_pos_desired_z_cm(inertial_nav.get_position_z_up_cm() + 300);
+    }
+
+    // Set the auto_arm status to true to avoid a possible automatic disarm caused by selection of an auto mode with throttle at minimum
+    copter.set_auto_armed(true);
 }
 
 // runs the throw to start controller
@@ -49,6 +71,7 @@ void ModeThrow::run()
     Throw_Disarmed - motors are off
     Throw_Detecting -  motors are on and we are waiting for the throw
     Throw_Uprighting - the throw has been detected and the copter is being uprighted
+    Throw_PowerClimb - fixed-throttle open-loop climb while the EKF recovers, then HgtStabilise
     Throw_HgtStabilise - the copter is kept level and  height is stabilised about the target height
     Throw_PosHold - the copter is kept at a constant position and height
     */
@@ -81,22 +104,20 @@ void ModeThrow::run()
         gcs().send_text(MAV_SEVERITY_INFO,"throttle is unlimited - uprighting");
         stage = Throw_Uprighting;
     } else if (stage == Throw_Uprighting && throw_attitude_good()) {
-        gcs().send_text(MAV_SEVERITY_INFO,"uprighted - controlling height");
-        stage = Throw_HgtStabilise;
-
-        // initialise the z controller
-        pos_control->init_z_controller_no_descent();
-
-        // initialise the demanded height to 3m above the throw height
-        // we want to rapidly clear surrounding obstacles
-        if (g2.throw_type == ThrowType::Drop) {
-            pos_control->set_pos_desired_z_cm(inertial_nav.get_position_z_up_cm() - 100);
+        if (g2.throw_climb_s > 0) {
+            // open-loop climb while the EKF recovers from the launch
+            climb_start_ms = AP_HAL::millis();
+            stage = Throw_PowerClimb;
+            gcs().send_text(MAV_SEVERITY_INFO,"uprighted - power climb %.1fs", (double)g2.throw_climb_s.get());
         } else {
-            pos_control->set_pos_desired_z_cm(inertial_nav.get_position_z_up_cm() + 300);
+            gcs().send_text(MAV_SEVERITY_INFO,"uprighted - controlling height");
+            enter_hgt_stabilise();
         }
 
-        // Set the auto_arm status to true to avoid a possible automatic disarm caused by selection of an auto mode with throttle at minimum
-        copter.set_auto_armed(true);
+    } else if (stage == Throw_PowerClimb &&
+               (AP_HAL::millis() - climb_start_ms) >= (uint32_t)(constrain_float(g2.throw_climb_s, 0.0f, 15.0f) * 1000.0f)) {
+        gcs().send_text(MAV_SEVERITY_INFO,"power climb done - controlling height");
+        enter_hgt_stabilise();
 
     } else if (stage == Throw_HgtStabilise && throw_height_good()) {
         gcs().send_text(MAV_SEVERITY_INFO,"height achieved - controlling position");
@@ -180,6 +201,21 @@ void ModeThrow::run()
 
         // fixed uprighting throttle (parameter, default 0.5) and turn off angle boost to maximise righting moment
         attitude_control->set_throttle_out(constrain_float(g2.throw_upright_thr, 0.1f, 1.0f), false, g.throttle_filt);
+
+        break;
+
+    case Throw_PowerClimb:
+
+        // set motors to full range
+        motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
+
+        // demand a level roll/pitch attitude with zero yaw rate
+        attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0.0f, 0.0f, 0.0f);
+
+        // fixed open-loop climb throttle: no EKF height/velocity feedback while the
+        // estimator recovers from the launch. Angle boost on (vehicle is already
+        // within 30 deg of level) so the vertical thrust component stays constant.
+        attitude_control->set_throttle_out(constrain_float(g2.throw_climb_thr, 0.1f, 1.0f), true, g.throttle_filt);
 
         break;
 

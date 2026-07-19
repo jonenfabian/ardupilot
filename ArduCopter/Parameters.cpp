@@ -1296,6 +1296,23 @@ const AP_Param::GroupInfo ParametersG2::var_info2[] = {
     // @Increment: 0.05
     // @User: Advanced
     AP_GROUPINFO("THROW_UPR_THR", 29, ParametersG2, throw_upright_thr, 0.5),
+
+    // @Param: THROW_CLIMB_S
+    // @DisplayName: Throw power climb duration
+    // @Description: Duration of the fixed-throttle open-loop climb after uprighting, before normal height stabilisation begins. Gives the EKF time to recover from launch accelerometer clipping before any height/velocity feedback is used. 0 disables the stage (previous behaviour). Applies to both upward throws and drops.
+    // @Units: s
+    // @Range: 0 15
+    // @Increment: 0.5
+    // @User: Advanced
+    AP_GROUPINFO("THROW_CLIMB_S", 30, ParametersG2, throw_climb_s, 0),
+
+    // @Param: THROW_CLIMB_THR
+    // @DisplayName: Throw power climb throttle
+    // @Description: Throttle fraction used during the open-loop power climb (THROW_CLIMB_S > 0). Must be set above hover throttle (MOT_THST_HOVER) or the vehicle will descend; recommended hover + 0.15 to 0.25.
+    // @Range: 0.1 1.0
+    // @Increment: 0.05
+    // @User: Advanced
+    AP_GROUPINFO("THROW_CLIMB_THR", 31, ParametersG2, throw_climb_thr, 0.6),
 #endif
 
     // ID 62 is reserved for the AP_SUBGROUPEXTENSION

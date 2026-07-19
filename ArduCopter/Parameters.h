@@ -515,6 +515,8 @@ public:
     AP_Float throw_velz_min_ms;      // min vertical speed for early detection (m/s)
     AP_Float throw_impulse_g;        // min specific force (g) to latch launch impulse
     AP_Float throw_upright_thr;      // throttle during uprighting (0-1)
+    AP_Float throw_climb_s;          // open-loop power climb duration after uprighting (s, 0=disabled)
+    AP_Float throw_climb_thr;        // throttle during power climb (0-1)
 #endif
 
     // ground effect compensation enable/disable
