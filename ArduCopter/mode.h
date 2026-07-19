@@ -1762,6 +1762,16 @@ public:
         RUNNING = 1,
     };
 
+    // Throw detection strategies (THROW_DETECT parameter)
+    enum class DetectMethod {
+        LegacyPeak = 0,       // classic peak confirmation (unchanged behaviour)
+        EarlyCoast = 1,       // coast after launch using THROW_ACCEL_MAX
+        EarlyCoast1g = 2,     // coast with fixed 1.0 g threshold
+        PostImpulse = 3,      // require high-g impulse then coast
+        PostImpulseFast = 4,  // as PostImpulse with shorter debounce
+        ClimbingFast = 5,     // purely kinematic (speed + climb), no accelerometer gate
+    };
+
 protected:
 
     const char *name() const override { return "THROW"; }
@@ -1773,6 +1783,19 @@ private:
     bool throw_position_good() const;
     bool throw_height_good() const;
     bool throw_attitude_good() const;
+
+    // detection helpers
+    bool throw_ahrs_healthy() const;
+    bool throw_height_within_params() const;
+    bool throw_changing_height() const;
+    bool throw_high_speed() const;
+    float throw_accel_g() const;
+    bool throw_coast_condition(float accel_max_g) const;
+    bool throw_debounce(bool condition, uint32_t debounce_ms);
+    bool throw_detected_legacy();
+    bool throw_detected_early_coast(float accel_max_g, uint32_t debounce_ms, bool require_impulse);
+
+    void throw_reset_detection_state();
 
     // Throw stages
     enum ThrowModeStage {
@@ -1790,6 +1813,12 @@ private:
     bool nextmode_attempted;
     uint32_t free_fall_start_ms;    // system time free fall was detected
     float free_fall_start_velz;     // vertical velocity when free fall was detected
+
+    // early / post-impulse detection state
+    uint32_t early_condition_start_ms;  // when early-coast condition first became true
+    bool impulse_seen;                  // true after high-g launch pulse observed
+    uint32_t impulse_seen_ms;           // system time the launch impulse was last observed
+    bool detected_via_fallback;         // true if the legacy peak fallback triggered instead of the selected early method
 };
 
 #if MODE_TURTLE_ENABLED

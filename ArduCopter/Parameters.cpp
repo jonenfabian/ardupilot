@@ -1232,6 +1232,72 @@ const AP_Param::GroupInfo ParametersG2::var_info2[] = {
     // @User: Advanced
     AP_GROUPINFO("FS_EKF_FILT", 8, ParametersG2, fs_ekf_filt_hz, FS_EKF_FILT_DEFAULT),
 
+#if MODE_THROW_ENABLED
+    // note: indices 23-29 are used (not 9+) so the EEPROM keys match the
+    // master-based fabian/throw-detect-variants branch and parameter values
+    // survive switching between the two firmwares
+
+    // @Param: THROW_DETECT
+    // @DisplayName: Throw detection method
+    // @Description: Selects how Throw mode decides that the vehicle has been launched and motors may start. 0 keeps classic peak confirmation. 1-4 are earlier coast/impulse strategies for field comparison (e.g. pneumatic launch). 5 is purely kinematic (speed and climb rate only, no accelerometer condition). For methods 1-5 the classic peak detection keeps running as a fallback: if the early method never triggers, motors still start when the legacy peak signature is confirmed.
+    // @Values: 0:LegacyPeak,1:EarlyCoast,2:EarlyCoast1g,3:PostImpulse,4:PostImpulseFast,5:ClimbingFast
+    // @User: Advanced
+    AP_GROUPINFO("THROW_DETECT", 23, ParametersG2, throw_detect, (float)ModeThrow::DetectMethod::LegacyPeak),
+
+    // @Param: THROW_ACCEL_MAX
+    // @DisplayName: Throw coast accel threshold
+    // @Description: Maximum accelerometer magnitude in g units for early coast detection (THROW_DETECT 1,3,4). Lower values wait longer; higher values start earlier after the launch pulse. Typical starting value 0.7.
+    // @Units: gravities
+    // @Range: 0.1 1.5
+    // @Increment: 0.05
+    // @User: Advanced
+    AP_GROUPINFO("THROW_ACCEL_MAX", 24, ParametersG2, throw_accel_max_g, 0.7),
+
+    // @Param: THROW_DET_MS
+    // @DisplayName: Throw early detect debounce
+    // @Description: Time in milliseconds that early detection conditions must stay true before motors start (THROW_DETECT 1-5). This is the main dial for how early after launch the motors start: small values start just after the launch impulse ends, larger values move the start later towards the trajectory peak. If set so long that the early condition window closes first, the legacy peak fallback performs the detection instead. PostImpulseFast uses half of this value (minimum 20 ms).
+    // @Units: ms
+    // @Range: 20 2000
+    // @Increment: 10
+    // @User: Advanced
+    AP_GROUPINFO("THROW_DET_MS", 25, ParametersG2, throw_detect_ms, 80),
+
+    // @Param: THROW_SPD_MIN
+    // @DisplayName: Throw min speed for early detect
+    // @Description: Minimum 3D speed in m/s required for early throw detection methods. Helps avoid false triggers when the vehicle is still on the ground. Note the EKF speed estimate can read far below the true speed right after a high-g launch (IMU clipping), so keep this well below the expected EKF-reported speed, not the true launch speed.
+    // @Units: m/s
+    // @Range: 0 20
+    // @Increment: 0.5
+    // @User: Advanced
+    AP_GROUPINFO("THROW_SPD_MIN", 26, ParametersG2, throw_speed_min_ms, 5.0),
+
+    // @Param: THROW_VELZ_MIN
+    // @DisplayName: Throw min vertical speed
+    // @Description: Minimum vertical speed in m/s for early detection. For upward throws the vehicle must still be climbing faster than this; for drops it must be descending faster than this (sign handled by THROW_TYPE).
+    // @Units: m/s
+    // @Range: 0 10
+    // @Increment: 0.1
+    // @User: Advanced
+    AP_GROUPINFO("THROW_VELZ_MIN", 27, ParametersG2, throw_velz_min_ms, 1.0),
+
+    // @Param: THROW_IMPULSE_G
+    // @DisplayName: Throw launch impulse threshold
+    // @Description: Accelerometer magnitude in g that must be seen once to latch a launch impulse (THROW_DETECT 3 and 4). Set well below the launch peak (e.g. 8 when peak is ~25-40 g) and above normal handling bumps. The latch expires after 5 seconds without a completed detection.
+    // @Units: gravities
+    // @Range: 1.5 40
+    // @Increment: 0.5
+    // @User: Advanced
+    AP_GROUPINFO("THROW_IMPULSE_G", 28, ParametersG2, throw_impulse_g, 8.0),
+
+    // @Param: THROW_UPR_THR
+    // @DisplayName: Throw uprighting throttle
+    // @Description: Fixed throttle fraction used while uprighting after a throw is detected. Default 0.5 matches previous hard-coded behaviour.
+    // @Range: 0.1 1.0
+    // @Increment: 0.05
+    // @User: Advanced
+    AP_GROUPINFO("THROW_UPR_THR", 29, ParametersG2, throw_upright_thr, 0.5),
+#endif
+
     // ID 62 is reserved for the AP_SUBGROUPEXTENSION
 
     AP_GROUPEND

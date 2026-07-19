@@ -508,6 +508,13 @@ public:
     // Throw mode parameters
     AP_Int8 throw_nextmode;
     AP_Enum<ModeThrow::ThrowType> throw_type;
+    AP_Enum<ModeThrow::DetectMethod> throw_detect;
+    AP_Float throw_accel_max_g;      // max specific force (g) for coast / launch-complete
+    AP_Int16 throw_detect_ms;        // debounce time for early detection (ms)
+    AP_Float throw_speed_min_ms;     // min 3D speed for early detection (m/s)
+    AP_Float throw_velz_min_ms;      // min vertical speed for early detection (m/s)
+    AP_Float throw_impulse_g;        // min specific force (g) to latch launch impulse
+    AP_Float throw_upright_thr;      // throttle during uprighting (0-1)
 #endif
 
     // ground effect compensation enable/disable
