@@ -1,29 +1,29 @@
-# FELDTEST — Wurferkennung + Power-Climb (Master-Fassung)
+# FIELD TEST — Throw Detection + Power Climb (master edition)
 
-**Hinweis:** Die Feldtests fliegen auf dem 4.6-Branch
-(`fabian/throw-detect-variants-4.6`, Basis = geflogene 4.6.3-Baseline) — dessen
-`FELDTEST.md` ist das operative Dokument. Diese Fassung hier ist der
-Entwicklungs-Spiegel auf master-Basis (`fabian/throw-detect-variants`,
-ArduCopter 4.8.0-dev); Parameter-Indizes sind identisch, Werte überleben einen
-Firmware-Wechsel zwischen beiden Branches.
+**Note:** The field tests fly on the 4.6 branch
+(`fabian/throw-detect-variants-4.6`, based on the flown 4.6.3 baseline) — its
+`FELDTEST.md` is the operative document. This edition is the development mirror
+on a master base (`fabian/throw-detect-variants`, ArduCopter 4.8.0-dev);
+parameter indices are identical, values survive firmware swaps between the two
+branches.
 
-**Ziel:** Zwei Testcases am Katapult fliegen. In beiden steigt die Drohne nach der
-Wurferkennung erst **einige Sekunden mit festem Schub** weiter (Power-Climb), damit
-sich die Sensoren vom Abschuss erholen, und geht erst danach in den normalen
-Schwebeflug über.
+**Goal:** Fly two test cases from the catapult. In both, after throw detection the
+drone first keeps **climbing for several seconds at a fixed thrust** (power climb)
+so the sensors can recover from the launch, and only then transitions into the
+normal hover recovery.
 
-- **Testcase 1:** Standard-Erkennung + Power-Climb
-- **Testcase 2:** Früh-Erkennung (Motorstart früher) + Power-Climb
-- *(Optional: Baseline-Referenz = Standard-Erkennung ohne Power-Climb, wie Juli-Tests)*
+- **Test case 1:** standard detection + power climb
+- **Test case 2:** early detection (motors start earlier) + power climb
+- *(Optional: baseline reference = standard detection without power climb, as in the July tests)*
 
-**Ihr braucht:** Laptop mit Mission Planner, USB-Kabel, freigegebenes Testgelände
-mit **viel Luftraum nach oben** (siehe Kapitel 5), Not-Disarm griffbereit.
+**You need:** laptop with Mission Planner, USB cable, cleared test site with
+**plenty of airspace above** (see chapter 5), emergency disarm within reach.
 
 ---
 
-## 1. Firmware bauen und flashen
+## 1. Building and flashing the firmware
 
-### 1.1 Bauen (`.apj`)
+### 1.1 Build (`.apj`)
 
 ```text
 git fetch && git checkout fabian/throw-detect-variants
@@ -32,182 +32,182 @@ git submodule update --init --recursive
 ./waf copter
 ```
 
-Ergebnis: `build/CubeOrangePlus/bin/arducopter.apj`.
+Result: `build/CubeOrangePlus/bin/arducopter.apj`.
 
-### 1.2 Flashen im Mission Planner
+### 1.2 Flashing in Mission Planner
 
-1. Vorher Parameter sichern: verbinden → **CONFIG → Full Parameter List → Save to file**.
-2. Trennen (Disconnect). Autopilot per USB direkt (kein Hub) anschließen.
-3. **SETUP → Install Firmware** → unten **Load custom firmware** klicken.
-   (Link nicht sichtbar? **CONFIG → Planner → Layout: Advanced** einstellen.)
-4. Die gebaute `arducopter.apj` auswählen, Meldungen bis `Upload Done` abwarten.
-5. Einige Sekunden warten, dann **Connect**.
+1. Back up parameters first: connect → **CONFIG → Full Parameter List → Save to file**.
+2. Disconnect. Plug the autopilot in via USB directly (no hub).
+3. **SETUP → Install Firmware** → click **Load custom firmware** at the bottom.
+   (Link not visible? Set **CONFIG → Planner → Layout: Advanced**.)
+4. Select the built `arducopter.apj`, wait for the messages up to `Upload Done`.
+5. Wait a few seconds, then **Connect**.
 
-### 1.3 Prüfen, ob die richtige Firmware läuft
+### 1.3 Verifying the right firmware is running
 
-**CONFIG → Full Parameter List → Refresh Params** → oben rechts ins Suchfeld
-`THROW_CLIMB` eintippen. Erscheinen `THROW_CLIMB_S` und `THROW_CLIMB_THR`,
-ist die richtige Firmware drauf. Fehlen sie → falsche Firmware, zurück zu 1.2.
-
----
-
-## 2. Parameter einstellen im Mission Planner — Schritt für Schritt
-
-So ändert ihr **jeden** Parameter in dieser Anleitung:
-
-1. Drohne verbinden: oben rechts COM-Port wählen (oder AUTO), Baud **115200**, **Connect**.
-2. Oben in der Menüleiste auf **CONFIG** klicken.
-3. Links im Menü **Full Parameter List** wählen.
-4. Rechts oben ins **Suchfeld** den Parameternamen tippen (z. B. `THROW`) —
-   die Liste filtert sich automatisch.
-5. In der Zeile des Parameters in die Spalte **Value** klicken und den neuen
-   Wert eintragen.
-6. Rechts auf **Write Params** klicken — erst damit landet der Wert auf der Drohne.
-7. Zur Kontrolle **Refresh Params** klicken und den Wert nochmal ablesen.
-
-Die Statusmeldungen der Drohne (z. B. `throw detected`, `power climb`) seht ihr
-unter **DATA** (oben links) → Reiter **Messages** (unten links).
+**CONFIG → Full Parameter List → Refresh Params** → type `THROW_CLIMB` into the
+search box at the top right. If `THROW_CLIMB_S` and `THROW_CLIMB_THR` appear, the
+correct firmware is installed. If they are missing → wrong firmware, back to 1.2.
 
 ---
 
-## 3. Feste Werte (einmalig vor allen Versuchen setzen)
+## 2. Setting parameters in Mission Planner — step by step
 
-Alle nach Schema aus Kapitel 2 setzen, am Ende einmal **Write Params**:
+This is how you change **every** parameter in this guide:
 
-| Parameter | Wert | Bedeutung |
-|-----------|------|-----------|
-| `THROW_TYPE` | `0` | Wurf nach oben |
-| `THROW_ALT_ACSND` | `0` | nach dem Power-Climb nicht zusätzlich steigen |
-| `THROW_ALT_DCSND` | `1` | (bei TYPE 0 irrelevant) |
-| `THROW_ALT_MIN` | `0` | keine Min-Höhe für Erkennung |
-| `THROW_ALT_MAX` | `0` | keine Max-Höhe für Erkennung |
-| `THROW_NEXTMODE` | `5` | nach dem Fangen: Loiter |
-| `THROW_MOT_START` | `0` | Props vor Erkennung aus |
-| `THROW_ACCEL_MAX` | `0.7` | Schwelle „Abschuss-Impuls vorbei" |
-| `THROW_DET_MS` | `80` | Haltezeit Früh-Erkennung (nur Testcase 2 relevant) |
-| `THROW_SPD_MIN` | `1.5` | Mindestgeschwindigkeit (aus Juli-Logs abgeleitet — nicht erhöhen!) |
-| `THROW_VELZ_MIN` | `1` | Mindest-Steigrate |
-| `THROW_IMPULSE_G` | `8` | Abschuss-Nachweis (nur Testcase 2) |
-| `THROW_UPR_THR` | `0.5` | Gas beim Aufrichten |
-| `MOT_SPOOL_TIME` | `0.3` | Motor-Hochlaufzeit (s) |
+1. Connect the drone: select the COM port at the top right (or AUTO), baud **115200**, **Connect**.
+2. Click **CONFIG** in the top menu bar.
+3. Select **Full Parameter List** in the left-hand menu.
+4. Type the parameter name (e.g. `THROW`) into the **search box** at the top
+   right — the list filters automatically.
+5. Click into the **Value** column of the parameter's row and enter the new value.
+6. Click **Write Params** on the right — only this stores the value on the drone.
+7. To double-check, click **Refresh Params** and read the value back.
+
+The drone's status messages (e.g. `throw detected`, `power climb`) appear under
+**DATA** (top left) → **Messages** tab (bottom left).
 
 ---
 
-## 4. Die Testcases einstellen
+## 3. Fixed values (set once before all trials)
 
-Pro Testcase nur die folgenden Parameter ändern (Kapitel-2-Schema) → **Write Params** → werfen.
+Set all of these following the chapter 2 procedure, then **Write Params** once:
 
-### Testcase 1 — Standard-Erkennung + Power-Climb
+| Parameter | Value | Meaning |
+|-----------|-------|---------|
+| `THROW_TYPE` | `0` | upward throw |
+| `THROW_ALT_ACSND` | `0` | no extra climb after the power climb |
+| `THROW_ALT_DCSND` | `1` | (irrelevant for TYPE 0) |
+| `THROW_ALT_MIN` | `0` | no minimum height for detection |
+| `THROW_ALT_MAX` | `0` | no maximum height for detection |
+| `THROW_NEXTMODE` | `5` | after the catch: Loiter |
+| `THROW_MOT_START` | `0` | props off before detection |
+| `THROW_ACCEL_MAX` | `0.7` | "launch impulse over" threshold |
+| `THROW_DET_MS` | `80` | early-detection hold time (test case 2 only) |
+| `THROW_SPD_MIN` | `1.5` | minimum speed (derived from the July logs — do not raise!) |
+| `THROW_VELZ_MIN` | `1` | minimum climb rate |
+| `THROW_IMPULSE_G` | `8` | launch impulse proof (test case 2 only) |
+| `THROW_UPR_THR` | `0.5` | throttle while uprighting |
+| `MOT_SPOOL_TIME` | `0.3` | motor spool-up time (s) |
 
-| Parameter | Wert |
-|-----------|------|
+---
+
+## 4. Setting up the test cases
+
+Per test case only change the following parameters (chapter 2 procedure) →
+**Write Params** → launch.
+
+### Test case 1 — standard detection + power climb
+
+| Parameter | Value |
+|-----------|-------|
 | `THROW_DETECT` | `0` |
 | `THROW_CLIMB_S` | `5` |
 | `THROW_CLIMB_THR` | `0.6` |
 
-### Testcase 2 — Früh-Erkennung + Power-Climb
+### Test case 2 — early detection + power climb
 
-| Parameter | Wert |
-|-----------|------|
+| Parameter | Value |
+|-----------|-------|
 | `THROW_DETECT` | `3` |
 | `THROW_CLIMB_S` | `5` |
 | `THROW_CLIMB_THR` | `0.6` |
 
-Motorstart deutlich früher als bei Testcase 1 (nach dem Abschuss-Impuls statt erst
-bei der Standard-Bestätigung). Löst die Früh-Erkennung nicht aus, übernimmt
-automatisch die Standard-Erkennung (Meldung `fallback peak` statt `detect 3`) —
-bitte notieren, das ist ein Versuchsergebnis. Der Startzeitpunkt lässt sich über
-`THROW_DET_MS` verschieben (80 = früh; größer = später; über ~300 übernimmt der
-Fallback).
+Motors start much earlier than in test case 1 (right after the launch impulse
+instead of waiting for the standard confirmation). If the early detection does not
+trigger, the standard detection takes over automatically (message `fallback peak`
+instead of `detect 3`) — please note it down, that is a trial result. The start
+timing can be shifted via `THROW_DET_MS` (80 = early; larger = later; above ~300
+the fallback takes over).
 
-### Baseline-Referenz (nur bei Bedarf, entspricht den Juli-Flügen)
+### Baseline reference (only if needed, matches the July flights)
 
-| Parameter | Wert |
-|-----------|------|
+| Parameter | Value |
+|-----------|-------|
 | `THROW_DETECT` | `0` |
 | `THROW_CLIMB_S` | `0` |
 
 ---
 
-## 5. Power-Climb: Was passiert, und was ihr einstellen könnt
+## 5. Power climb: what happens, and what you can tune
 
-**Ablauf:** Erkennung → Motoren laufen hoch → Drohne richtet sich auf → **steigt
-`THROW_CLIMB_S` Sekunden mit festem Gas `THROW_CLIMB_THR` senkrecht** (ohne auf die
-gestörten Höhen-/Geschwindigkeitsschätzungen zu hören) → normale Höhenregelung
-(`THROW_ALT_ACSND` über aktueller Höhe) → Position halten → Loiter.
+**Sequence:** detection → motors spool up → drone uprights itself → **climbs
+vertically for `THROW_CLIMB_S` seconds at fixed throttle `THROW_CLIMB_THR`**
+(ignoring the disturbed height/velocity estimates) → normal height control
+(`THROW_ALT_ACSND` above the current height) → position hold → Loiter.
 
-**Die zwei Feintuning-Regler:**
+**The two tuning dials:**
 
-| Parameter | Bedeutung | Werte zum Testen |
-|-----------|-----------|------------------|
-| `THROW_CLIMB_S` | Dauer des Steigflugs in Sekunden. `0` = Funktion aus. | `3` → `5` → `10` (steigern, nur wenn nötig) |
-| `THROW_CLIMB_THR` | Schub während des Steigflugs. `0.5` = 50 %, `0.6` = 60 %, `0.7` = 70 % Gas. | Start `0.6`; **muss über dem Schwebe-Gas (~0.33) liegen**, sonst sinkt sie! |
+| Parameter | Meaning | Values to test |
+|-----------|---------|----------------|
+| `THROW_CLIMB_S` | Climb duration in seconds. `0` = feature off. | `3` → `5` → `10` (increase only if needed) |
+| `THROW_CLIMB_THR` | Thrust during the climb. `0.5` = 50 %, `0.6` = 60 %, `0.7` = 70 % throttle. | Start at `0.6`; **must stay above hover throttle (~0.33)**, otherwise it descends! |
 
-**Wie hoch steigt sie dabei? (Schätzung — nach den ersten Logs prüfen!)**
-Bei Schub 0.6 beschleunigt die Drohne anfangs mit grob 8 m/s² nach oben (real
-bremst der Luftwiderstand). Grobe Richtwerte inklusive Abschussschwung:
+**How high does it climb? (estimate — verify against the first logs!)**
+At thrust 0.6 the drone initially accelerates upwards at roughly 8 m/s² (drag
+reduces this in reality). Rough figures including the launch momentum:
 
-| `THROW_CLIMB_S` | erwarteter Höhengewinn |
+| `THROW_CLIMB_S` | expected altitude gain |
 |-----------------|------------------------|
 | 3 s | ~40–70 m |
 | 5 s | ~100–150 m |
-| 10 s | 200 m+ — **nur mit großzügigem, freigegebenem Luftraum!** |
+| 10 s | 200 m+ — **only with generous, cleared airspace!** |
 
-Dazu kommen nach Ende des Steigflugs noch ~10–25 m Überschwinger, bis die
-Höhenregelung die Fahrt abgebaut hat. `THROW_ALT_MAX` begrenzt das **nicht**
-(wirkt nur auf die Erkennung, nicht auf den Climb).
+Add ~10–25 m of overshoot after the climb ends until height control has bled off
+the momentum. `THROW_ALT_MAX` does **not** limit this (it only gates detection,
+not the climb).
 
-**Abbrechen im Flug:** Moduswechsel am Sender (z. B. auf Loiter/AltHold) beendet
-alles sofort — Daumen am Schalter. Zweiter Weg: `THROW_CLIMB_S` am Laptop auf `0`
-setzen + Write Params — der Steigflug endet augenblicklich.
+**Aborting in flight:** a mode change on the transmitter (e.g. to Loiter/AltHold)
+ends everything immediately — thumb on the switch. Second option: set
+`THROW_CLIMB_S` to `0` on the laptop + Write Params — the climb ends instantly.
 
 ---
 
-## 6. Ablauf pro Wurf
+## 6. Procedure per throw
 
-1. Testcase-Parameter gesetzt (Kapitel 4), **Write Params**.
-2. Flugmodus **Throw** wählen (Modus 18), dann armieren. **Armierte Drohne nicht
-   tragen** — erst im Katapult armieren.
-3. Abschuss.
-4. Meldungen unter **DATA → Messages** prüfen. Erwartete Reihenfolge:
+1. Test case parameters set (chapter 4), **Write Params**.
+2. Select flight mode **Throw** (mode 18), then arm. **Do not carry the armed
+   drone** — arm only once it sits in the catapult.
+3. Launch.
+4. Check the messages under **DATA → Messages**. Expected sequence:
    - `waiting for throw`
-   - `throw detected - spooling motors (detect 0)` bzw. `(detect 3)`
-     — bei Testcase 2 ggf. `(fallback peak)` = Früh-Erkennung hat verpasst, notieren!
+   - `throw detected - spooling motors (detect 0)` or `(detect 3)`
+     — in test case 2 possibly `(fallback peak)` = early detection missed, note it down!
    - `uprighted - power climb 5.0s`
    - `power climb done - controlling height`
    - `height achieved - controlling position`
-5. Notieren: Testcase, Einstellwerte, Verhalten (Trudeln? Höhe? ruhiges Fangen?), Log sichern.
+5. Record: test case, parameter values, behaviour (tumbling? altitude? smooth catch?), save the log.
 
 ---
 
-## 7. Sicherheit
+## 7. Safety
 
-- Props, Personen, Freifeld; Not-Disarm griffbereit. Bei Testcase 2 drehen die
-  Props schon wenige Meter über dem Katapult an — niemand über der Austrittsbahn.
-- **Luftraum:** Höhengewinn-Tabelle in Kapitel 5 beachten; mit 3 s beginnen.
-  Sichtlinie halten.
-- `THROW_CLIMB_THR` nie unter das Schwebe-Gas (~0.33) stellen.
-- Nach Fehlstart (Abschuss ohne Flug): **disarmen, neu armieren.**
-- Bricht ein Versuch mit der Meldung „EKF Failsafe" ab (Drohne geht in LAND
-  mitten im Steigflug): Für die Testreihe darf `FS_EKF_THRESH` von `0.8` auf
-  `1.0` gesetzt werden (Kapitel-2-Schema). **Nach den Tests zurückstellen.**
-- Die Früh-Erkennungs-Methoden 1–5 und das Fallback-Sicherheitsnetz sind weiter
-  in der Firmware; Standard-Testplan sind aber nur die zwei Cases oben.
+- Props, people, clear field; emergency disarm within reach. In test case 2 the
+  props spin up only a few metres above the catapult — nobody above the exit path.
+- **Airspace:** mind the altitude-gain table in chapter 5; start with 3 s.
+  Keep line of sight.
+- Never set `THROW_CLIMB_THR` below hover throttle (~0.33).
+- After a misfire (launch without flight): **disarm, then re-arm.**
+- If a trial aborts with an "EKF Failsafe" message (drone switches to LAND in the
+  middle of the climb): for this trial campaign `FS_EKF_THRESH` may be raised
+  from `0.8` to `1.0` (chapter 2 procedure). **Restore it after the tests.**
+- The early-detection methods 1–5 and the fallback safety net remain in the
+  firmware; the standard test plan however is only the two cases above.
 
 ---
 
-## 8. Technik (für die Auswertung)
+## 8. Technical notes (for the analysis)
 
-- Branch `fabian/throw-detect-variants` (master-Basis, ArduCopter 4.8.0-dev).
-- Code: `ArduCopter/mode_throw.cpp`; Parameter in `Parameters.cpp` (Indizes
-  identisch zum 4.6-Branch — Werte überleben Firmware-Wechsel).
-- Log-Auswertung: THRO-Message, **Stage-Nummern in diesem Build:**
+- Branch `fabian/throw-detect-variants` (master base, ArduCopter 4.8.0-dev).
+- Code: `ArduCopter/mode_throw.cpp`; parameters in `Parameters.cpp` (indices
+  identical to the 4.6 branch — values survive firmware swaps).
+- Log analysis: THRO message, **stage numbers in this build:**
   0 Disarmed, 1 Detecting, 2 Spool, 3 Uprighting, **4 PowerClimb**,
   5 HgtStabilise, 6 PosHold.
-- SITL-Autotests: `ThrowMode`, `ThrowModeEarlyDetect`, `ThrowModeDetectFallback`,
+- SITL autotests: `ThrowMode`, `ThrowModeEarlyDetect`, `ThrowModeDetectFallback`,
   `ThrowModePowerClimb`.
 
-Quellen:
+Sources:
 
 - https://ardupilot.org/planner/docs/mission-planner-configuration-and-tuning.html
 - https://ardupilot.org/copter/docs/common-loading-firmware-onto-pixhawk.html
