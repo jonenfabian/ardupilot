@@ -6209,7 +6209,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
                 "THROW_DETECT": detect,
                 "THROW_IMPULSE_G": 2,  # SIM_SHOVE peaks well below the real-launch 8 g default
                 "THROW_CLIMB_S": 5,
-                "THROW_CLIMB_THR": 0.5,  # modest thrust keeps the SITL apex (and RTL time) low
+                "THROW_CLIMB_THR": 0.7,  # comfortably above the SITL frame's hover throttle
                 "SIM_SHOVE_Z": -30,
                 "SIM_SHOVE_X": -20,
             })
