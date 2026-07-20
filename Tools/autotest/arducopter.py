@@ -8470,10 +8470,12 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             self.wait_statustext("throw detected - spooling motors (detect %u)" % detect,
                                  check_context=True)
             self.wait_statustext("uprighted - power climb", check_context=True)
-            # sustained climb during the open-loop stage
-            self.wait_climbrate(1, 120, minimum_duration=3)
             self.wait_statustext("power climb done - controlling height",
                                  check_context=True)
+            # the open-loop climb must have carried the vehicle well above the
+            # ~12 m ballistic apex a plain shove reaches, and height control
+            # holds it there until the RTL handover
+            self.wait_altitude(25, 1000, relative=True, minimum_duration=5, timeout=90)
             self.wait_mode('RTL', timeout=120)
             self.wait_rtl_complete()
             self.context_pop()
