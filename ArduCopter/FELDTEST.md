@@ -20,6 +20,12 @@ the July baseline flights. Branch: `fabian/throw-detect-variants-4.6`
 
 ## 1. Building and flashing the firmware
 
+> **Use your own workflow if you have one.** Any build/flash/parameter method
+> you normally use is fine (waf --upload, QGroundControl, other GCS, …) — the
+> steps in this guide are just one known-good reference path. All that matters
+> is the result: this branch's firmware on the board (check chapter 1.3) and
+> the parameter values from chapters 3–4.
+
 ### 1.1 Build (`.apj`)
 
 ```text
