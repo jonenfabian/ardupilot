@@ -425,6 +425,18 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             # our post-condition is that we are disarmed:
             if not self.armed():
                 if home == "":
+                    # the position stream can lag far behind the heartbeat
+                    # carrying the disarm; re-check with the freshest position
+                    # before declaring failure
+                    self.drain_mav()
+                    m = self.mav.recv_match(type='GLOBAL_POSITION_INT', blocking=True, timeout=5)
+                    if m is not None:
+                        alt = m.relative_alt / 1000.0  # mm -> m
+                        home_distance = self.distance_to_home(use_cached_home=True)
+                        self.progress("Recheck after disarm Alt: %.02f  HomeDist: %.02f" %
+                                      (alt, home_distance))
+                        if (not check_alt or alt <= 1) and home_distance < distance_max:
+                            return
                     raise NotAchievedException("Did not get home")
                 # success!
                 return
