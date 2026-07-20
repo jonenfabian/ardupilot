@@ -3593,8 +3593,9 @@ class TestSuite(ABC):
     def do_timesync_roundtrip(self, quiet=False, timeout_in_wallclock=False):
         if not quiet:
             self.progress("Doing timesync roundtrip")
+        tstart_wallclock = time.time()
         if timeout_in_wallclock:
-            tstart = time.time()
+            tstart = tstart_wallclock
         else:
             tstart = self.get_sim_time()
         self.mav.mav.timesync_send(0, self.timesync_number * 1000 + self.mav.source_system)
@@ -3603,7 +3604,10 @@ class TestSuite(ABC):
                 now = time.time()
             else:
                 now = self.get_sim_time_cached()
-            if now - tstart > 5:
+            # sim time can jump across SITL reboots which would expire the
+            # sim-time budget instantly; require the wallclock budget to have
+            # expired as well before declaring failure
+            if now - tstart > 5 and time.time() - tstart_wallclock > 5:
                 raise AutoTestTimeoutException("Did not get timesync response")
             m = self.mav.recv_match(type='TIMESYNC', blocking=True, timeout=1)
             if not quiet:
