@@ -103,19 +103,19 @@ Per test case only change the following parameters (chapter 2 procedure) →
 
 ### Test case 1 — standard detection + power climb
 
-| Parameter | Value |
-|-----------|-------|
-| `THROW_DETECT` | `0` |
-| `THROW_CLIMB_S` | `5` |
-| `THROW_CLIMB_THR` | `0.6` |
+| Parameter | Value | What it does |
+|-----------|-------|--------------|
+| `THROW_DETECT` | `0` | standard throw detection — motors start on the classic (late) confirmation, exactly as in the July flights |
+| `THROW_CLIMB_S` | `5` | power climb: after uprighting, climb for 5 seconds before height control takes over (`0` = feature off) |
+| `THROW_CLIMB_THR` | `0.6` | thrust during that climb: 0.6 = 60 % throttle (must stay above hover, ~33 %) |
 
 ### Test case 2 — early detection + power climb
 
-| Parameter | Value |
-|-----------|-------|
-| `THROW_DETECT` | `3` |
-| `THROW_CLIMB_S` | `5` |
-| `THROW_CLIMB_THR` | `0.6` |
+| Parameter | Value | What it does |
+|-----------|-------|--------------|
+| `THROW_DETECT` | `3` | early detection: first the ≥ 8 g launch jolt must be seen, then motors start right after the jolt ends — well before the standard confirmation |
+| `THROW_CLIMB_S` | `5` | power climb: same as test case 1 |
+| `THROW_CLIMB_THR` | `0.6` | climb thrust: same as test case 1 |
 
 Motors start much earlier than in test case 1 (right after the launch impulse
 instead of waiting for the standard confirmation). If the early detection does not
@@ -126,10 +126,10 @@ the fallback takes over).
 
 ### Baseline reference (only if needed, matches the July flights)
 
-| Parameter | Value |
-|-----------|-------|
-| `THROW_DETECT` | `0` |
-| `THROW_CLIMB_S` | `0` |
+| Parameter | Value | What it does |
+|-----------|-------|--------------|
+| `THROW_DETECT` | `0` | standard throw detection |
+| `THROW_CLIMB_S` | `0` | power climb **off** — the drone behaves exactly like the July baseline flights |
 
 ---
 
