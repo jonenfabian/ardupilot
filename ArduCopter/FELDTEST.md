@@ -34,6 +34,11 @@ git submodule update --init --recursive
 
 Result: `build/CubeOrangePlus/bin/arducopter.apj`.
 
+> **If the build hangs at "Processing dronecangen" (zero CPU output for
+> minutes):** the latest `dronecan` Python package (1.0.27) has a parser
+> regression with the 4.6 branch's generator (master bundles its own).
+> Fix: `pip install 'dronecan==1.0.26' 'setuptools<81'` and rebuild.
+
 ### 1.2 Flashing in Mission Planner
 
 1. Back up parameters first: connect → **CONFIG → Full Parameter List → Save to file**.
