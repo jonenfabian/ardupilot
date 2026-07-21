@@ -163,8 +163,12 @@ jobs:
       - name: Install Cygwin
         shell: powershell
         run: |
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-          Invoke-WebRequest https://cygwin.com/setup-x86_64.exe -OutFile C:\setup.exe
+          # cygwin.com is flaky from Azure runners; curl with retries is far
+          # more reliable than Invoke-WebRequest here
+          curl.exe -fSL --retry 8 --retry-delay 10 --retry-all-errors -o C:\setup.exe https://cygwin.com/setup-x86_64.exe
+          if ($LASTEXITCODE -ne 0) {
+            throw "Downloading setup-x86_64.exe failed with exit code $LASTEXITCODE"
+          }
           if ((Get-Item -LiteralPath 'C:\setup.exe').Length -eq 0) {
             throw "The downloaded setup.exe is empty"
           }
