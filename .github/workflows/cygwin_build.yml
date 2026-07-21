@@ -172,7 +172,9 @@ jobs:
           if ((Get-Item -LiteralPath 'C:\setup.exe').Length -eq 0) {
             throw "The downloaded setup.exe is empty"
           }
-          $packages = 'cygwin64,gcc-g++=10.2.0-1,ccache,python37,python37-future,python37-lxml,python37-pip,python37-setuptools,python37-wheel,git,procps,gettext'
+          # python37, procps and gcc-g++ 10.2.0-1 are no longer in the Cygwin
+          # repo; use python39 and procps-ng, and the current gcc-g++
+          $packages = 'gcc-g++,ccache,python39,python39-future,python39-lxml,python39-pip,python39-setuptools,python39-wheel,git,procps-ng,gettext'
           & C:\setup.exe -qgnO -s http://mirrors.kernel.org/sourceware/cygwin/ -R C:\cygwin -l C:\cygwin-packages -P $packages | Out-Default
           if (!(Test-Path 'C:\cygwin\bin\bash.exe')) {
             throw "Cygwin install did not produce C:\cygwin\bin\bash.exe"
@@ -206,9 +208,10 @@ jobs:
           PATH: /usr/bin:$(cygpath ${SYSTEMROOT})/system32
         shell: C:\cygwin\bin\bash.exe -eo pipefail '{0}'
         run: >-
-          ln -sf /usr/bin/python3.7 /usr/bin/python && ln -sf /usr/bin/pip3.7 /usr/bin/pip &&
-          python3 -m pip install --progress-bar off empy==3.3.4 pexpect &&
-          python3 -m pip install --progress-bar off dronecan --upgrade &&
+          ln -sf /usr/bin/python3.9 /usr/bin/python && ln -sf /usr/bin/pip3.9 /usr/bin/pip &&
+          ln -sf /usr/bin/python3.9 /usr/bin/python3 &&
+          python -m pip install --progress-bar off empy==3.3.4 pexpect &&
+          python -m pip install --progress-bar off 'dronecan==1.0.26' 'setuptools<81' &&
           cp /usr/bin/ccache /usr/local/bin/ &&
           cd /usr/local/bin && ln -s ccache /usr/local/bin/gcc &&
           ln -s ccache /usr/local/bin/g++ &&
