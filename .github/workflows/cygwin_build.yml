@@ -156,10 +156,23 @@ jobs:
           NAME_DASHED=${WORKFLOWNAME//+( )/_}
           echo "cache-key=${NAME_DASHED}" >> $GITHUB_OUTPUT
 
-      - uses: cygwin/cygwin-install-action@v5
-        with:
-          packages: cygwin64 gcc-g++=10.2.0-1 ccache python37 python37-future python37-lxml python37-pip python37-setuptools python37-wheel git procps gettext
-          add-to-path: false
+      # cygwin/cygwin-install-action@v5 currently dies fetching
+      # https://cygwin.com/sha512.sum on GitHub-hosted runners
+      # (Invoke-WebRequest NullReferenceException), so run the equivalent
+      # setup.exe invocation directly, without the checksum lookup.
+      - name: Install Cygwin
+        shell: powershell
+        run: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          Invoke-WebRequest https://cygwin.com/setup-x86_64.exe -OutFile C:\setup.exe
+          if ((Get-Item -LiteralPath 'C:\setup.exe').Length -eq 0) {
+            throw "The downloaded setup.exe is empty"
+          }
+          $packages = 'cygwin64,gcc-g++=10.2.0-1,ccache,python37,python37-future,python37-lxml,python37-pip,python37-setuptools,python37-wheel,git,procps,gettext'
+          & C:\setup.exe -qgnO -s http://mirrors.kernel.org/sourceware/cygwin/ -R C:\cygwin -l C:\cygwin-packages -P $packages | Out-Default
+          if (!(Test-Path 'C:\cygwin\bin\bash.exe')) {
+            throw "Cygwin install did not produce C:\cygwin\bin\bash.exe"
+          }
       # Put ccache into github cache for faster build
       - name: setup ccache
         env:
