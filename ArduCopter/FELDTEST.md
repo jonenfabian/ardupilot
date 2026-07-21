@@ -28,6 +28,11 @@ the July baseline flights. Branch: `fabian/throw-detect-variants-4.6`
 
 ### 1.1 Build (`.apj`)
 
+> **No build needed for CubeOrangePlus:** a prebuilt firmware of this branch
+> is committed at `firmware-builds/arducopter-CubeOrangePlus.apj` — download
+> that file and continue with chapter 1.2. Building it yourself is only
+> required for other boards or after code changes.
+
 ```text
 git fetch && git checkout fabian/throw-detect-variants-4.6
 git submodule update --init --recursive
