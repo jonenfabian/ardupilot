@@ -57,6 +57,29 @@ Result: `build/CubeOrangePlus/bin/arducopter.apj`.
 search box at the top right. If `THROW_CLIMB_S` and `THROW_CLIMB_THR` appear, the
 correct firmware is installed. If they are missing → wrong firmware, back to 1.2.
 
+### 1.4 No hardware? Try it in the simulator first (SITL, no build needed)
+
+Prebuilt simulator binaries of this branch live in `sitl-builds/` — no
+compiling, no flashing, no drone:
+
+- **Windows:** download `sitl-builds/ArduCopter-SITL-Windows.zip`, extract it
+  **completely** (the `cyg*.dll` files must sit next to the exe), double-click
+  `start-sitl.bat`. If SmartScreen complains: *More info → Run anyway*; accept
+  the firewall prompt. Then in Mission Planner pick connection type **TCP**,
+  host `127.0.0.1`, port `5760` and press Connect. All `THROW_*` parameters
+  from chapters 3–4 are available exactly as on the real board.
+- **Linux / WSL:** `sitl-builds/arducopter-sitl-linux-x86_64` is the same
+  firmware built for Linux; run it with `--model +` and connect the same way.
+- See `sitl-builds/README.md` for details.
+
+> **If you rebuild the Windows SITL yourself** (GitHub-Actions workflow
+> "Cygwin Build", or `Tools/scripts/cygwin_build.sh` in a local Cygwin):
+> the Cygwin repo dropped the packages this workflow historically used —
+> you need `python39`/`procps-ng` (not `python37`/`procps`), the current
+> `gcc-g++`, and the `dronecan==1.0.26` pin from chapter 1.1 applies in
+> Cygwin too. The workflow file on this branch already contains all of
+> that, plus retrying downloads because cygwin.com is flaky from CI runners.
+
 ---
 
 ## 2. Setting parameters in Mission Planner — step by step
