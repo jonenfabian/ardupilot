@@ -13,7 +13,7 @@ die Feldtest-Anleitung in `ArduCopter/FELDTEST.md`.
 | Datei | Plattform |
 |---|---|
 | `arducopter-sitl-linux-x86_64` | Linux 64-bit (läuft unter Windows via WSL, siehe unten) |
-| `ArduCopter-SITL-Windows.zip` | Windows nativ (Cygwin-Build aus CI) — *erscheint hier, sobald der GitHub-Actions-Build gelaufen ist* |
+| `ArduCopter-SITL-Windows.zip` | Windows nativ (64-bit; Exe + benötigte Cygwin-DLLs + `start-sitl.bat`) — **das ist die Datei für die Kollegen** |
 
 ## Variante A: Nativ unter Windows (Zip)
 
@@ -51,5 +51,7 @@ die Parameter auf Standardwerte.)
 - Einen Wurf simuliert man wie in den Autotests: Mode **THROW** wählen,
   armen, dann per `SIM_SHOVE`-Parametern oder einfach gemäß
   `ArduCopter/FELDTEST.md` vorgehen.
-- Das Binary entspricht dem Stand von Commit `c83506c` dieses Branches
-  (Basis: ArduCopter 4.6.3).
+- Beide Binaries entsprechen dem Flight-Code-Stand dieses Branches
+  (Basis: ArduCopter 4.6.3; die Windows-Exe wurde aus Commit `24f6cf4`
+  gebaut — seit dem Linux-Build kamen nur CI-Änderungen dazu, kein
+  Flugcode). Das exakte Build-Commit steht in der `git.txt` im Zip.
