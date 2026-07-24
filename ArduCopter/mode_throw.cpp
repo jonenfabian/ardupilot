@@ -40,6 +40,8 @@ void ModeThrow::throw_reset_detection_state()
     impulse_seen_ms = 0;
     detected_via_fallback = false;
     climb_start_ms = 0;
+    climb_xy_ok_start_ms = 0;
+    climb_xy_active = false;
 }
 
 // initialise height stabilisation about the current height; entered either
@@ -123,8 +125,11 @@ void ModeThrow::run()
         gcs().send_text(MAV_SEVERITY_INFO,"height achieved - controlling position");
         stage = Throw_PosHold;
 
-        // initialise position controller
-        pos_control->init_xy_controller();
+        // initialise position controller (already running if the power climb
+        // engaged XY position hold)
+        if (!climb_xy_active) {
+            pos_control->init_xy_controller();
+        }
 
         // Set the auto_arm status to true to avoid a possible automatic disarm caused by selection of an auto mode with throttle at minimum
         copter.set_auto_armed(true);
@@ -209,8 +214,26 @@ void ModeThrow::run()
         // set motors to full range
         motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
 
-        // demand a level roll/pitch attitude with zero yaw rate
-        attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0.0f, 0.0f, 0.0f);
+        // once the EKF has recovered from the launch shock, brake the launch/wind
+        // drift and hold XY position for the remainder of the climb
+        if (!climb_xy_active && g2.throw_climb_xy != 0 && throw_ekf_recovered()) {
+            pos_control->init_xy_controller();
+            climb_xy_active = true;
+            gcs().send_text(MAV_SEVERITY_INFO,"power climb - holding position");
+        }
+
+        if (climb_xy_active) {
+            // decelerate to zero horizontal velocity and hold position: tilt
+            // comes from the XY controller, collective stays open loop
+            Vector2f zero_vel;
+            Vector2f zero_accel;
+            pos_control->input_vel_accel_xy(zero_vel, zero_accel);
+            pos_control->update_xy_controller();
+            attitude_control->input_thrust_vector_rate_heading(pos_control->get_thrust_vector(), 0.0f);
+        } else {
+            // demand a level roll/pitch attitude with zero yaw rate
+            attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0.0f, 0.0f, 0.0f);
+        }
 
         // fixed open-loop climb throttle: no EKF height/velocity feedback while the
         // estimator recovers from the launch. Angle boost on (vehicle is already
@@ -224,8 +247,17 @@ void ModeThrow::run()
         // set motors to full range
         motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
 
-        // call attitude controller
-        attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0.0f, 0.0f, 0.0f);
+        if (climb_xy_active) {
+            // keep holding XY position through the height capture
+            Vector2f zero_vel;
+            Vector2f zero_accel;
+            pos_control->input_vel_accel_xy(zero_vel, zero_accel);
+            pos_control->update_xy_controller();
+            attitude_control->input_thrust_vector_rate_heading(pos_control->get_thrust_vector(), 0.0f);
+        } else {
+            // call attitude controller
+            attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(0.0f, 0.0f, 0.0f);
+        }
 
         // call height controller
         pos_control->set_pos_target_z_from_climb_rate_cm(0.0f);
@@ -308,6 +340,28 @@ bool ModeThrow::throw_ahrs_healthy() const
     // Check that we have a valid navigation solution
     nav_filter_status filt_status = inertial_nav.get_filter_status();
     return filt_status.flags.attitude && filt_status.flags.horiz_pos_abs && filt_status.flags.vert_pos;
+}
+
+bool ModeThrow::throw_ekf_recovered()
+{
+    // the launch shock corrupts the EKF velocity/position estimate for the
+    // first seconds; require a full navigation solution and calm innovation
+    // test ratios for 0.5 s before trusting it for position control
+    float vel_var, pos_var, hgt_var, tas_var;
+    Vector3f mag_var;
+    const bool calm = throw_ahrs_healthy() &&
+                      ahrs.get_variances(vel_var, pos_var, hgt_var, mag_var, tas_var) &&
+                      vel_var < 0.5f && pos_var < 0.5f;
+    if (!calm) {
+        climb_xy_ok_start_ms = 0;
+        return false;
+    }
+    const uint32_t now_ms = AP_HAL::millis();
+    if (climb_xy_ok_start_ms == 0) {
+        climb_xy_ok_start_ms = now_ms;
+        return false;
+    }
+    return (now_ms - climb_xy_ok_start_ms) >= 500;
 }
 
 bool ModeThrow::throw_height_within_params() const

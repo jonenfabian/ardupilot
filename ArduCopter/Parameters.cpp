@@ -1313,6 +1313,13 @@ const AP_Param::GroupInfo ParametersG2::var_info2[] = {
     // @Increment: 0.05
     // @User: Advanced
     AP_GROUPINFO("THROW_CLIMB_THR", 31, ParametersG2, throw_climb_thr, 0.6),
+
+    // @Param: THROW_CLIMB_XY
+    // @DisplayName: Throw power climb XY position hold
+    // @Description: If enabled, horizontal position hold engages during the power climb as soon as the EKF has recovered from the launch shock (full navigation solution and calm velocity/position innovations for 0.5 s). This brakes the launch momentum and wind drift and holds XY through the rest of the climb and the height capture. If disabled the climb keeps the original open-loop level attitude and the vehicle drifts with launch momentum and wind until the position hold stage.
+    // @Values: 0:Disabled,1:Enabled
+    // @User: Advanced
+    AP_GROUPINFO("THROW_CLIMB_XY", 32, ParametersG2, throw_climb_xy, 1),
 #endif
 
     // ID 62 is reserved for the AP_SUBGROUPEXTENSION

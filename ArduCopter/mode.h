@@ -1800,6 +1800,7 @@ private:
     bool throw_debounce(bool condition, uint32_t debounce_ms);
     bool throw_detected_legacy();
     bool throw_detected_early_coast(float accel_max_g, uint32_t debounce_ms, bool require_impulse);
+    bool throw_ekf_recovered();
 
     void throw_reset_detection_state();
     void enter_hgt_stabilise();
@@ -1819,6 +1820,8 @@ private:
     ThrowModeStage prev_stage = Throw_Disarmed;
     uint32_t last_log_ms;
     uint32_t climb_start_ms;        // system time the power climb stage began
+    uint32_t climb_xy_ok_start_ms;  // system time the EKF variances first looked recovered (0 = not yet)
+    bool climb_xy_active;           // true once XY position hold has engaged during the power climb
     bool nextmode_attempted;
     uint32_t free_fall_start_ms;    // system time free fall was detected
     float free_fall_start_velz;     // vertical velocity when free fall was detected
