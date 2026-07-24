@@ -16,6 +16,10 @@ the July baseline flights. Branch: `fabian/throw-detect-variants-4.6`
 **You need:** laptop with Mission Planner, USB cable, cleared test site with
 **plenty of airspace above** (see chapter 5), emergency disarm within reach.
 
+> **Flying test round 3 (after the July 22 flights)?** The concrete plan —
+> firmware version to check, parameter values and what to record per throw —
+> is in **chapter 9**.
+
 ---
 
 ## 1. Building and flashing the firmware
@@ -61,6 +65,11 @@ Result: `build/CubeOrangePlus/bin/arducopter.apj`.
 **CONFIG → Full Parameter List → Refresh Params** → type `THROW_CLIMB` into the
 search box at the top right. If `THROW_CLIMB_S` and `THROW_CLIMB_THR` appear, the
 correct firmware is installed. If they are missing → wrong firmware, back to 1.2.
+
+The exact build is shown under **DATA → Messages** right after connecting, e.g.
+`ArduCopter V4.6.3 (fdcaee40)`. The hash in parentheses identifies the commit
+the firmware was built from — chapter 9 says which one the current test round
+expects.
 
 ### 1.4 No hardware? Try it in the simulator first (SITL, no build needed)
 
@@ -263,6 +272,47 @@ ends everything immediately — thumb on the switch. Second option: set
   `ThrowModePowerClimb`, `ThrowModePowerClimbEKFFailsafe` (failsafe deferred
   during the climb, fires again afterwards), `ThrowModePowerClimbXYHold`
   (drift braked once the estimator recovers).
+
+## 9. Test round 3 — plan (after the July 22 flights)
+
+**What changed since July 22:** the two failed climbs (flights 6 and 8) were
+caused by the EKF variance failsafe forcing LAND ~2 s after launch — a timing
+coin toss present in *every* launch. The firmware now defers that failsafe
+during the open-loop phases and re-arms it once height control begins
+(chapter 7). In addition the climb now brakes the launch/wind drift and holds
+position over the ground as soon as the sensors have recovered
+(`THROW_CLIMB_XY`, chapter 5).
+
+**Firmware:** flash the prebuilt `firmware-builds/arducopter-CubeOrangePlus.apj`
+from this branch. After connecting, **DATA → Messages** must show
+**`ArduCopter V4.6.3 (fdcaee40)`** — if it shows `73872c44` you are still on the
+July 22 build.
+
+**Parameters (test case 1, chapter 2 procedure):**
+
+| Parameter | Value | Note |
+|-----------|-------|------|
+| `THROW_DETECT` | `0` | unchanged |
+| `THROW_CLIMB_S` | `7` | your July 22 value was fine — the failures were never caused by the duration |
+| `THROW_CLIMB_THR` | `0.45` | suggestion: `0.38` is barely above hover, so the first seconds gain almost no height; flight 3 flew `0.45` cleanly. Keep `0.38` if airspace is tight |
+| `THROW_CLIMB_XY` | `1` | new, default — position hold during the climb |
+| `FS_EKF_THRESH` | `0.8` | back to/stays at default — the relaxation to 1.0 is obsolete |
+
+**What to verify and record per throw:**
+
+1. **No failsafe aborts:** every throw must complete the full climb now. A
+   LAND drop mid-climb would be a *new* failure mode — flag it and save the log.
+2. **Position hold engagement:** note the time from launch until the
+   `power climb - holding position` message (expected 1–3 s). If it never
+   appears during a climb, note that too — the climb still completes, just
+   drifting like before.
+3. **Drift:** compare hand-over point vs. launch point with the July 22
+   flights (5–38 m back then). The drone should visibly brake and climb over a
+   fixed ground point.
+4. **Optional A/B:** if throws to spare, two launches with `THROW_CLIMB_XY 0`
+   under the same wind to quantify the drift difference.
+
+Test case 2 (early detection) is unchanged and stays optional.
 
 Sources:
 
