@@ -142,6 +142,7 @@ Per test case only change the following parameters (chapter 2 procedure) →
 | `THROW_DETECT` | `0` | standard throw detection — motors start on the classic (late) confirmation, exactly as in the July flights |
 | `THROW_CLIMB_S` | `5` | power climb: after uprighting, climb for 5 seconds before height control takes over (`0` = feature off) |
 | `THROW_CLIMB_THR` | `0.6` | thrust during that climb: 0.6 = 60 % throttle (must stay above hover, ~33 %) |
+| `THROW_CLIMB_XY` | `1` | **new since the July 22 tests:** as soon as the position estimate has recovered (typically 1–3 s into the climb), the drone brakes the launch/wind drift and holds its position over the ground for the rest of the climb. `0` = old behaviour (climbs level, drifts with the wind) |
 
 ### Test case 2 — early detection + power climb
 
@@ -150,6 +151,7 @@ Per test case only change the following parameters (chapter 2 procedure) →
 | `THROW_DETECT` | `3` | early detection: first the ≥ 8 g launch jolt must be seen, then motors start right after the jolt ends — well before the standard confirmation |
 | `THROW_CLIMB_S` | `5` | power climb: same as test case 1 |
 | `THROW_CLIMB_THR` | `0.6` | climb thrust: same as test case 1 |
+| `THROW_CLIMB_XY` | `1` | hold position during the climb: same as test case 1 |
 
 Motors start much earlier than in test case 1 (right after the launch impulse
 instead of waiting for the standard confirmation). If the early detection does not
@@ -173,6 +175,14 @@ the fallback takes over).
 vertically for `THROW_CLIMB_S` seconds at fixed throttle `THROW_CLIMB_THR`**
 (ignoring the disturbed height/velocity estimates) → normal height control
 (+3 m) → position hold → Loiter.
+
+**Position hold during the climb (`THROW_CLIMB_XY`, new):** with `1` (default)
+the drone watches its own estimator during the climb and, as soon as the
+estimate is trustworthy again (typically 1–3 s after launch — message
+`power climb - holding position`), it brakes the horizontal drift and holds its
+position over the ground while continuing to climb. The July 22 logs showed
+5–38 m of drift and up to 8 m/s ground speed at the hand-over; this closes that
+gap. The climb thrust itself stays open-loop either way.
 
 **The two tuning dials:**
 
@@ -212,6 +222,8 @@ ends everything immediately — thumb on the switch. Second option: set
    - `throw detected - spooling motors (detect 0)` or `(detect 3)`
      — in test case 2 possibly `(fallback peak)` = early detection missed, note it down!
    - `uprighted - power climb 5.0s`
+   - `power climb - holding position` (only with `THROW_CLIMB_XY 1`, once the
+     estimator has recovered — if it never appears during a climb, note it down)
    - `power climb done - controlling height`
    - `height achieved - controlling position`
 5. Record: test case, parameter values, behaviour (tumbling? altitude? smooth catch?), save the log.
@@ -226,9 +238,14 @@ ends everything immediately — thumb on the switch. Second option: set
   Keep line of sight.
 - Never set `THROW_CLIMB_THR` below hover throttle (~0.33).
 - After a misfire (launch without flight): **disarm, then re-arm.**
-- If a trial aborts with an "EKF Failsafe" message (drone switches to LAND in the
-  middle of the climb): for this trial campaign `FS_EKF_THRESH` may be raised
-  from `0.8` to `1.0` (chapter 2 procedure). **Restore it after the tests.**
+- **EKF failsafe (fixed since the July 22 tests):** flights 6 and 8 on July 22
+  aborted into LAND ~2 s after launch because the launch shock trips the EKF
+  variance failsafe — a coin toss at the default `FS_EKF_THRESH 0.8` (every
+  launch exceeded the threshold; only the duration varied). The firmware now
+  defers this failsafe during the open-loop phases (waiting, uprighting, power
+  climb) where the estimate is not used for control anyway; it re-arms the
+  moment height control begins. `FS_EKF_THRESH` can therefore stay at `0.8` —
+  no more raising it for the campaign. All other failsafes stay fully active.
 - The early-detection methods 1–5 and the fallback safety net remain in the
   firmware; the standard test plan however is only the two cases above.
 
@@ -243,7 +260,9 @@ ends everything immediately — thumb on the switch. Second option: set
   0 Disarmed, 1 Detecting, 2 Spool, 3 Uprighting, **4 PowerClimb**,
   5 HgtStabilise, 6 PosHold.
 - SITL autotests: `ThrowMode`, `ThrowModeEarlyDetect`, `ThrowModeDetectFallback`,
-  `ThrowModePowerClimb`.
+  `ThrowModePowerClimb`, `ThrowModePowerClimbEKFFailsafe` (failsafe deferred
+  during the climb, fires again afterwards), `ThrowModePowerClimbXYHold`
+  (drift braked once the estimator recovers).
 
 Sources:
 
