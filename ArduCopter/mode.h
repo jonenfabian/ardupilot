@@ -1751,6 +1751,12 @@ public:
     bool allows_arming(AP_Arming::Method method) const override { return true; };
     bool is_autopilot() const override { return false; }
 
+    // true until closed-loop height control begins (waiting for the throw,
+    // uprighting, power climb): none of these stages use the EKF for control,
+    // so the EKF variance failsafe is deferred while this returns true
+    // (see Copter::ekf_check)
+    bool ekf_failsafe_deferred() const { return stage < Throw_HgtStabilise; }
+
     // Throw types
     enum class ThrowType {
         Upward = 0,

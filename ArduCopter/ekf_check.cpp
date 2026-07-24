@@ -59,6 +59,22 @@ void Copter::ekf_check()
         return;
     }
 
+#if MODE_THROW_ENABLED
+    // Throw mode runs open loop until its height stabilisation stage: the
+    // launch shock is expected to spike the variances (accelerometer clipping)
+    // and the EKF is not used for control, so defer the variance failsafe
+    // rather than aborting the recovery into a LAND flown on a corrupted
+    // estimate. Checks resume from a zeroed counter once closed-loop height
+    // control begins, restoring the normal 1 s trigger window.
+    if (flightmode == &mode_throw && mode_throw.ekf_failsafe_deferred()) {
+        ekf_check_state.fail_count = 0;
+        ekf_check_state.bad_variance = false;
+        AP_Notify::flags.ekf_bad = ekf_check_state.bad_variance;
+        failsafe_ekf_off_event();   // clear any active failsafe
+        return;
+    }
+#endif
+
     // increment or decrement counters and take action
     if (!checks_passed) {
         // if variances are not yet flagged as bad
