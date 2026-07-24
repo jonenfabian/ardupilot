@@ -6238,6 +6238,126 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             self.context_pop()
             self.progress("Power climb with THROW_DETECT=%u OK" % detect)
 
+    def ThrowModePowerClimbEKFFailsafe(self):
+        '''EKF variance failsafe is deferred during the open-loop throw stages'''
+        # runs at reduced speedup (see Test registration): the biases below
+        # must be injected while the climb is still in progress
+        self.context_push()
+        self.set_parameters({
+            "THROW_NEXTMODE": 6,
+            "THROW_DETECT": 0,
+            "THROW_CLIMB_S": 10,
+            "THROW_CLIMB_THR": 0.7,  # comfortably above the SITL frame's hover throttle
+            "THROW_CLIMB_XY": 0,     # isolate the failsafe deferral from XY hold
+            "SIM_SHOVE_Z": -30,
+            "SIM_SHOVE_X": -20,
+        })
+
+        # throw 1: corrupt the EKF velocity estimate mid-climb, the same
+        # failure the launch accelerometer clipping causes on the real
+        # vehicle. Without the deferral this forces LAND within about one
+        # second and the climb never completes.
+        self.progress("throw 1: EKF corrupted mid-climb must not abort the climb")
+        self.change_mode('THROW')
+        self.wait_ready_to_arm()
+        self.arm_vehicle()
+        self.context_push()
+        self.context_collect('STATUSTEXT')
+        try:
+            self.set_parameter("SIM_SHOVE_TIME", 500)
+        except ValueError:
+            # the shove resets this to zero
+            pass
+
+        self.wait_statustext("uprighted - power climb", check_context=True)
+        self.set_parameters({
+            'SIM_ACC1_BIAS_Z': 4,
+            'SIM_ACC2_BIAS_Z': 4,
+            'SIM_ACC3_BIAS_Z': 4,
+        })
+        self.wait_statustext("power climb done - controlling height",
+                             check_context=True, timeout=60)
+        # restore the EKF and let the mode sequence finish normally
+        self.set_parameters({
+            'SIM_ACC1_BIAS_Z': 0,
+            'SIM_ACC2_BIAS_Z': 0,
+            'SIM_ACC3_BIAS_Z': 0,
+        })
+        self.wait_mode('RTL', timeout=120)
+        self.wait_rtl_complete()
+        self.context_pop()
+
+        # throw 2: the failsafe is deferred, not disabled. The same corruption
+        # arriving once closed-loop control has begun must still trigger the
+        # EKF failsafe.
+        self.progress("throw 2: EKF corrupted after the climb must still failsafe")
+        self.change_mode('THROW')
+        self.wait_ready_to_arm()
+        self.arm_vehicle()
+        self.context_push()
+        self.context_collect('STATUSTEXT')
+        try:
+            self.set_parameter("SIM_SHOVE_TIME", 500)
+        except ValueError:
+            # the shove resets this to zero
+            pass
+
+        self.wait_statustext("power climb done - controlling height",
+                             check_context=True, timeout=60)
+        self.set_parameters({
+            'SIM_ACC1_BIAS_Z': 4,
+            'SIM_ACC2_BIAS_Z': 4,
+            'SIM_ACC3_BIAS_Z': 4,
+        })
+        self.wait_statustext("EKF Failsafe: changed to LAND Mode",
+                             check_context=True, timeout=60)
+        # restore the EKF and let the vehicle land out of the failsafe LAND
+        self.set_parameters({
+            'SIM_ACC1_BIAS_Z': 0,
+            'SIM_ACC2_BIAS_Z': 0,
+            'SIM_ACC3_BIAS_Z': 0,
+        })
+        self.wait_disarmed(timeout=300)
+        self.context_pop()
+        self.context_pop()
+        self.reboot_sitl()
+
+    def ThrowModePowerClimbXYHold(self):
+        '''Power climb engages XY position hold once the EKF has recovered'''
+        self.context_push()
+        self.set_parameters({
+            "THROW_NEXTMODE": 6,
+            "THROW_DETECT": 0,
+            "THROW_CLIMB_S": 8,
+            "THROW_CLIMB_THR": 0.7,  # comfortably above the SITL frame's hover throttle
+            "THROW_CLIMB_XY": 1,
+            "SIM_WIND_SPD": 5,
+            "SIM_WIND_DIR": 90,
+            "SIM_SHOVE_Z": -30,
+            "SIM_SHOVE_X": -20,
+        })
+        self.change_mode('THROW')
+        self.wait_ready_to_arm()
+        self.arm_vehicle()
+        self.context_collect('STATUSTEXT')
+        try:
+            self.set_parameter("SIM_SHOVE_TIME", 500)
+        except ValueError:
+            # the shove resets this to zero
+            pass
+
+        self.wait_statustext("uprighted - power climb", check_context=True)
+        self.wait_statustext("power climb - holding position",
+                             check_context=True, timeout=15)
+        # the shove imparts roughly 10 m/s horizontally and the wind keeps
+        # pushing: XY hold must brake the drift well before the climb ends
+        self.wait_groundspeed(0, 2.5, minimum_duration=2, timeout=30)
+        self.wait_statustext("power climb done - controlling height",
+                             check_context=True, timeout=30)
+        self.wait_mode('RTL', timeout=120)
+        self.wait_rtl_complete()
+        self.context_pop()
+
     def hover_and_check_matched_frequency_with_fft_and_psd(self, dblevel=-15, minhz=200, maxhz=300, peakhz=None,
                                                            reverse=None, takeoff=True, instance=0):
         '''Takeoff and hover, checking the noise against the provided db level and returning psd'''
@@ -10856,6 +10976,8 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
              self.ThrowModeEarlyDetect,
              self.ThrowModeDetectFallback,
              self.ThrowModePowerClimb,
+             Test(self.ThrowModePowerClimbEKFFailsafe, speedup=4),
+             self.ThrowModePowerClimbXYHold,
              self.BrakeMode,
              self.RecordThenPlayMission,
              self.ThrottleFailsafe,
