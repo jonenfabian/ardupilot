@@ -32,10 +32,13 @@ the July baseline flights. Branch: `fabian/throw-detect-variants-4.6`
 
 ### 1.1 Build (`.apj`)
 
-> **No build needed for CubeOrangePlus:** a prebuilt firmware of this branch
-> is committed at `firmware-builds/arducopter-CubeOrangePlus.apj` — download
-> that file and continue with chapter 1.2. Building it yourself is only
-> required for other boards or after code changes.
+> **No build needed for CubeOrangePlus:** download the prebuilt firmware from
+> the release page and continue with chapter 1.2:
+> https://github.com/jonenfabian/ardupilot/releases/download/feldtest-round3/arducopter-CubeOrangePlus.apj
+> (The same file is committed at `firmware-builds/arducopter-CubeOrangePlus.apj`,
+> but direct raw-file links from the repo are rate-limited by GitHub for
+> anonymous users — the release link is the reliable path.) Building it
+> yourself is only required for other boards or after code changes.
 
 ```text
 git fetch && git checkout fabian/throw-detect-variants-4.6
@@ -76,7 +79,10 @@ expects.
 Prebuilt simulator binaries of this branch live in `sitl-builds/` — no
 compiling, no flashing, no drone:
 
-- **Windows:** download `sitl-builds/ArduCopter-SITL-Windows.zip`, extract it
+- **Windows:** download the zip from the release page
+  (https://github.com/jonenfabian/ardupilot/releases/download/feldtest-round3/ArduCopter-SITL-Windows.zip
+  — currently still the July 22 build `73872c44`, i.e. without the round-3
+  fixes; fine for practicing the workflow), extract it
   **completely** (the `cyg*.dll` files must sit next to the exe), double-click
   `start-sitl.bat`. If SmartScreen complains: *More info → Run anyway*; accept
   the firewall prompt. Then in Mission Planner pick connection type **TCP**,
@@ -283,8 +289,9 @@ during the open-loop phases and re-arms it once height control begins
 position over the ground as soon as the sensors have recovered
 (`THROW_CLIMB_XY`, chapter 5).
 
-**Firmware:** flash the prebuilt `firmware-builds/arducopter-CubeOrangePlus.apj`
-from this branch. After connecting, **DATA → Messages** must show
+**Firmware:** flash the prebuilt firmware from the release page:
+https://github.com/jonenfabian/ardupilot/releases/download/feldtest-round3/arducopter-CubeOrangePlus.apj
+After connecting, **DATA → Messages** must show
 **`ArduCopter V4.6.3 (fdcaee40)`** — if it shows `73872c44` you are still on the
 July 22 build.
 
